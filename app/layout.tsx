@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import './globals.css'
 import { ErrorBoundary } from '@/components/errors/ErrorBoundary'
 import { ErrorProvider } from '@/lib/error-store'
 import { AuthProvider } from '@/components/AuthProvider'

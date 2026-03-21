@@ -1,4 +1,4 @@
-import { openai } from './openai'
+import { getOpenAIClient } from './openai'
 
 export type GeneratedApp = {
   frontend: {
@@ -42,7 +42,7 @@ function validateSchema(raw: string): GeneratedApp | null {
 }
 
 async function callAI(prompt: string): Promise<string> {
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAIClient().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
       {
