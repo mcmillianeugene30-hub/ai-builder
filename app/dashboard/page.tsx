@@ -1,13 +1,16 @@
 import { redirect } from 'next/navigation'
 import { getUser } from '@/lib/get-user'
-import { listProjects } from '@/lib/projects'
-import { DashboardClient } from './DashboardClient'
 
 export default async function DashboardPage() {
   const user = await getUser()
   if (!user) redirect('/login')
 
-  const projects = await listProjects(user.id)
-
-  return <DashboardClient userId={user.id} userEmail={user.email ?? ''} initialProjects={projects} />
+  return (
+    <main style={{ minHeight: '100vh', padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
+      <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+        Dashboard
+      </h1>
+      <p style={{ color: '#666' }}>Welcome, {user.email}</p>
+    </main>
+  )
 }

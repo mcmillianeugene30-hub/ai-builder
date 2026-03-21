@@ -1,31 +1,33 @@
 import type { Metadata } from 'next'
 import './globals.css'
+<<<<<<< HEAD
 import { ErrorBoundary } from '@/components/errors/ErrorBoundary'
 import { ErrorProvider } from '@/lib/error-store'
+=======
+>>>>>>> 640877f (fix: resolve all 14 production issues)
 import { AuthProvider } from '@/components/AuthProvider'
+import { ErrorProvider } from '@/lib/error-store'
 import { Nav } from '@/components/Nav'
-import { ToastContainer } from '@/components/errors/ToastContainer'
-import { FatalErrorScreen } from '@/components/errors/FatalErrorScreen'
 
 export const metadata: Metadata = {
   title: 'AI App Builder',
-  description: 'Build and deploy apps with AI',
+  description: 'Build production apps with AI',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en">
       <body>
-        <ErrorBoundary>
+        <AuthProvider>
           <ErrorProvider>
-            <AuthProvider>
-              <Nav />
-              <ToastContainer />
-              <FatalErrorScreen />
-              {children}
-            </AuthProvider>
+            <Nav />
+            {children}
           </ErrorProvider>
-        </ErrorBoundary>
+        </AuthProvider>
       </body>
     </html>
   )

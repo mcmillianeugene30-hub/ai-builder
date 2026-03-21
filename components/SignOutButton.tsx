@@ -9,12 +9,16 @@ export function SignOutButton() {
 
   async function handleSignOut() {
     setLoading(true)
-    await fetch('/api/auth/signout', { method: 'POST' })
-    router.push('/login')
+    const res = await fetch('/api/auth/signout', { method: 'POST' })
+    if (res.ok) {
+      router.push('/login')
+    } else {
+      setLoading(false)
+    }
   }
 
   return (
-    <button onClick={handleSignOut} disabled={loading}>
+    <button onClick={handleSignOut} disabled={loading} style={{ cursor: loading ? 'not-allowed' : 'pointer' }}>
       {loading ? 'Signing out...' : 'Sign out'}
     </button>
   )
