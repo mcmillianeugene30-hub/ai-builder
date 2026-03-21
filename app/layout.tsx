@@ -1,10 +1,5 @@
 import type { Metadata } from 'next'
 import './globals.css'
-<<<<<<< HEAD
-import { ErrorBoundary } from '@/components/errors/ErrorBoundary'
-import { ErrorProvider } from '@/lib/error-store'
-=======
->>>>>>> 640877f (fix: resolve all 14 production issues)
 import { AuthProvider } from '@/components/AuthProvider'
 import { ErrorProvider } from '@/lib/error-store'
 import { Nav } from '@/components/Nav'
@@ -22,12 +17,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider>
-          <ErrorProvider>
+        <ErrorProvider>
+          <AuthProvider>
             <Nav />
             {children}
-          </ErrorProvider>
-        </AuthProvider>
+          </AuthProvider>
+        </ErrorProvider>
       </body>
     </html>
   )

@@ -1,28 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { getUser } from '@/lib/get-user'
+import { signUp } from '@/lib/auth'
 
-export async function POST(req: NextRequest) {
-  const { email, password } = await req.json()
-
-  if (!email || !password) {
-    return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
+export async function POST(request: NextRequest) {
+  const user = await getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = await createSupabaseServerClient()
+  try {
+    const body = await request.json()
+    const { email, password } = body
 
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-  })
+    if (!email || !password) {
+      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
+    }
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 401 })
+    await signUp(email, password)
+    return NextResponse.json({ success: true, message: 'check_email' })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Registration failed'
+    return NextResponse.json({ error: message }, { status: 401 })
   }
-
-<<<<<<< HEAD
-  return NextResponse.json({ success: true })
-=======
-  // Return JSON — client handles the redirect
-  return NextResponse.json({ success: true, message: 'check_email' })
->>>>>>> 640877f (fix: resolve all 14 production issues)
 }
