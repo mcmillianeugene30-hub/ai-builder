@@ -1,5 +1,3 @@
-import { GeneratedApp } from './generate'
-
 export type ProjectFile = {
   name: string
   path: string
