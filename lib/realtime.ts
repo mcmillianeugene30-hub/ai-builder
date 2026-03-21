@@ -3,7 +3,7 @@ import { supabaseBrowser } from './supabase-browser'
 import type { Collaborator, RealtimePayload } from './types'
 
 export function createProjectChannel(projectId: string): RealtimeChannel {
-  return supabaseBrowser.channel(`project:${projectId}`)
+  return supabaseBrowser().channel(`project:${projectId}`)
 }
 
 export function subscribeToProjectChanges(
@@ -32,5 +32,5 @@ export function trackPresence(
 }
 
 export function unsubscribeChannel(channel: RealtimeChannel): void {
-  supabaseBrowser.removeChannel(channel)
+  supabaseBrowser().removeChannel(channel)
 }

@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { signUp } from '@/lib/auth'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function RegisterPage() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -12,10 +13,20 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    const result = await signUp(email, password)
-    if (result.error) {
-      setError(result.error)
+
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
+
+    if (!res.ok) {
+      const json = await res.json()
+      setError(json.error ?? 'Registration failed')
+      return
     }
+
+    router.push('/login?message=check_email')
   }
 
   return (

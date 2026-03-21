@@ -2,7 +2,7 @@
 
 import { useState, useEffect, createContext, useContext } from 'react'
 import { supabaseBrowser } from '@/lib/supabase-browser'
-import { Session, User } from '@supabase/supabase-js'
+import type { Session, User } from '@supabase/supabase-js'
 
 type AuthContextType = {
   user: User | null
@@ -22,13 +22,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabaseBrowser.auth.onAuthStateChange((_event, session) => {
+    supabaseBrowser().auth.onAuthStateChange((_event: string, session: Session | null) => {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
     })
 
-    supabaseBrowser.auth.getSession().then(({ data: { session } }) => {
+    supabaseBrowser().auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)

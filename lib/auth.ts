@@ -5,7 +5,7 @@ export async function signUp(
   email: string,
   password: string
 ): Promise<{ error: string | null }> {
-  const { error } = await supabaseBrowser.auth.signUp({ email, password })
+  const { error } = await supabaseBrowser().auth.signUp({ email, password })
   if (error) {
     return { error: error.message }
   }
@@ -16,7 +16,7 @@ export async function signIn(
   email: string,
   password: string
 ): Promise<{ error: string | null }> {
-  const { error } = await supabaseBrowser.auth.signInWithPassword({
+  const { error } = await supabaseBrowser().auth.signInWithPassword({
     email,
     password,
   })
@@ -27,6 +27,6 @@ export async function signIn(
 }
 
 export async function signOut(): Promise<void> {
-  await supabaseBrowser.auth.signOut()
+  await supabaseBrowser().auth.signOut()
   redirect('/login')
 }

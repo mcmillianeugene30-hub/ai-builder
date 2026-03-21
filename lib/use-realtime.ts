@@ -97,7 +97,7 @@ export function useRealtime(projectId: string) {
     async function init() {
       const {
         data: { user },
-      } = await supabaseBrowser.auth.getUser()
+      } = await supabaseBrowser().auth.getUser()
       if (!user || cancelled) return
 
       userRef.current = { id: user.id, email: user.email ?? 'unknown' }

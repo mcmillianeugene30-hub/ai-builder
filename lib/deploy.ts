@@ -12,10 +12,14 @@ export type VercelFile = {
 // ─── Constants ───────────────────────────────────────────────
 const VERCEL_API = "https://api.vercel.com"
 
-const VERCEL_TOKEN = process.env.VERCEL_API_TOKEN!
+function getVercelToken() {
+  const token = process.env.VERCEL_API_TOKEN
+  if (!token) throw new Error("Missing VERCEL_API_TOKEN in environment variables")
+  return token
+}
 
-if (!VERCEL_TOKEN) {
-  throw new Error("Missing VERCEL_API_TOKEN in environment variables")
+function getVercelTeam() {
+  return process.env.VERCEL_TEAM_ID ?? ""
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -33,7 +37,7 @@ function sleep(ms: number): Promise<void> {
 // ─── Vercel request headers ───────────────────────────────────
 function vercelHeaders(): HeadersInit {
   return {
-    Authorization: `Bearer ${VERCEL_TOKEN}`,
+    Authorization: `Bearer ${getVercelToken()}`,
     "Content-Type": "application/json"
   }
 }

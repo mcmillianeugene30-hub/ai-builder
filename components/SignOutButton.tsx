@@ -1,14 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { signOut } from '@/lib/auth'
+import { useRouter } from 'next/navigation'
 
 export function SignOutButton() {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
 
   async function handleSignOut() {
     setLoading(true)
-    await signOut()
+    await fetch('/api/auth/signout', { method: 'POST' })
+    router.push('/login')
   }
 
   return (
