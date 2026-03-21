@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, createContext, useContext } from 'react'
-import { supabaseBrowser } from '@/lib/supabase-browser'
+import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import type { Session, User } from '@supabase/supabase-js'
 
 type AuthContextType = {
@@ -22,17 +22,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabaseBrowser().auth.onAuthStateChange((_event: string, session: Session | null) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+    let mounted = true
 
-    supabaseBrowser().auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+    async function init() {
+      try {
+        const supabase = getSupabaseBrowser()
+        if (!supabase) {
+          if (mounted) { setLoading(false) }
+          return
+        }
+
+        const { data: { session } } = await supabase.auth.getSession()
+        if (mounted) {
+          setSession(session)
+          setUser(session?.user ?? null)
+          setLoading(false)
+        }
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (mounted) {
+            setSession(session)
+            setUser(session?.user ?? null)
+            setLoading(false)
+          }
+        })
+
+        return () => {
+          subscription.unsubscribe()
+        }
+      } catch (err) {
+        console.error('AuthProvider error:', err)
+        if (mounted) setLoading(false)
+      }
+    }
+
+    init()
+
+    return () => { mounted = false }
   }, [])
 
   return (
