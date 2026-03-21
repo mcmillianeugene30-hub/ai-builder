@@ -19,5 +19,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 401 })
   }
 
-  return NextResponse.redirect(new URL('/dashboard', request.url))
+  return NextResponse.json({ success: true })
 }
