@@ -1,14 +1,10 @@
 -- ============================================================
 -- AI App Builder — Supabase Schema
 -- Run this in your Supabase SQL editor:
--- https://app.supabase.com → Your project → SQL Editor
+-- https://app.supabase.com → Your project → SQL Editor → New Query
 -- ============================================================
 
-<<<<<<< HEAD
--- ─── AI Logs ─────────────────────────────────────────────────
-
-=======
--- Enable UUID extension
+-- Enable UUID extension (required for uuid_generate_v4)
 create extension if not exists "uuid-ossp";
 
 -- ─── Projects ────────────────────────────────────────────────
@@ -24,12 +20,24 @@ create table if not exists public.projects (
 
 alter table public.projects enable row level security;
 
--- Users can only see and manage their own projects
 create policy "Users manage own projects"
   on public.projects
   for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Auto-update updated_at on row changes
+create or replace function public.handle_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger projects_updated_at
+  before update on public.projects
+  for each row execute function public.handle_updated_at();
 
 -- ─── Deployments ─────────────────────────────────────────────
 create table if not exists public.deployments (
@@ -52,8 +60,11 @@ create policy "Users manage own deployments"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+create trigger deployments_updated_at
+  before update on public.deployments
+  for each row execute function public.handle_updated_at();
+
 -- ─── AI Generation Logs ──────────────────────────────────────
->>>>>>> 640877f (fix: resolve all 14 production issues)
 create table if not exists public.ai_logs (
   id          uuid        primary key default uuid_generate_v4(),
   user_id     uuid        references auth.users(id) on delete set null,
@@ -69,125 +80,46 @@ create table if not exists public.ai_logs (
 
 alter table public.ai_logs enable row level security;
 
--- Allow anyone to read logs (for debugging), only service role can insert
-create policy "Service role can manage ai_logs"
+-- Service role (server-side) manages logs; users can read their own
+create policy "Authenticated users can read ai_logs"
   on public.ai_logs
-  for all
-  using (true)
+  for select
+  using (auth.uid() = user_id or auth.uid() is null);
+
+create policy "Service role can insert ai_logs"
+  on public.ai_logs
+  for insert
   with check (true);
 
-<<<<<<< HEAD
--- ─── Projects ────────────────────────────────────────────────
-
-create table if not exists public.projects (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  name text not null,
-  description text,
-  files jsonb not null default '[]'::jsonb,
-  created_at timestamp with time zone default now(),
-  updated_at timestamp with time zone default now()
-);
-
-alter table public.projects enable row level security;
-
-create policy "Users can view own projects"
-  on public.projects for select
-  using (auth.uid() = user_id);
-
-create policy "Users can insert own projects"
-  on public.projects for insert
-  with check (auth.uid() = user_id);
-
-create policy "Users can update own projects"
-  on public.projects for update
-  using (auth.uid() = user_id);
-
-create policy "Users can delete own projects"
-  on public.projects for delete
-  using (auth.uid() = user_id);
-
--- Auto-update updated_at on changes
-create or replace function public.handle_updated_at()
-returns trigger as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$ language plpgsql;
-
-create trigger projects_updated_at
-  before update on public.projects
-  for each row execute function public.handle_updated_at();
-
--- ─── Deployments ─────────────────────────────────────────────
-
-create table if not exists public.deployments (
-  id uuid default gen_random_uuid() primary key,
-  project_id uuid references public.projects(id) on delete cascade not null,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  vercel_id text not null unique,
-  status text not null default 'queued',
-  url text,
-  error_message text,
-  created_at timestamp with time zone default now(),
-  updated_at timestamp with time zone default now()
-);
-
-alter table public.deployments enable row level security;
-
-create policy "Users can view own deployments"
-  on public.deployments for select
-  using (auth.uid() = user_id);
-
-create policy "Users can insert own deployments"
-  on public.deployments for insert
-  with check (auth.uid() = user_id);
-
-create policy "Users can update own deployments"
-  on public.deployments for update
-  using (auth.uid() = user_id);
-
-create trigger deployments_updated_at
-  before update on public.deployments
-  for each row execute function public.handle_updated_at();
-
 -- ─── Error Logs ──────────────────────────────────────────────
-
 create table if not exists public.error_logs (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users(id) on delete set null,
-  module text not null,
-  error_code text not null,
-  message text not null,
-  stack text,
-  context jsonb,
-  severity text not null default 'medium',
-  created_at timestamp with time zone default now()
+  id          uuid        primary key default uuid_generate_v4(),
+  user_id     uuid        references auth.users(id) on delete set null,
+  module      text        not null,
+  error_code  text        not null,
+  message     text        not null,
+  stack       text,
+  context     jsonb,
+  severity    text        not null default 'medium',
+  created_at  timestamptz not null default now()
 );
 
 alter table public.error_logs enable row level security;
 
 create policy "Users can view own error logs"
-  on public.error_logs for select
+  on public.error_logs
+  for select
   using (auth.uid() = user_id);
 
 create policy "Service role can insert error logs"
-  on public.error_logs for insert
+  on public.error_logs
+  for insert
   with check (true);
 
--- ─── Storage bucket ──────────────────────────────────────────
--- Create the 'project-assets' bucket via Supabase Dashboard > Storage
--- or run: insert into storage.buckets (id, name, public) values ('project-assets', 'project-assets', false);
-=======
 -- ─── Storage Bucket ──────────────────────────────────────────
--- Run in Supabase dashboard → Storage → New bucket
--- Name: project-assets
--- Public: false
--- File size limit: 10MB
--- Allowed MIME types: image/png, image/jpeg, image/gif, image/svg+xml, image/webp
-
--- Storage RLS policies (run after creating the bucket):
+-- Creates the 'project-assets' bucket for uploaded files
+-- Run this AFTER creating the bucket via:
+-- Supabase Dashboard → Storage → New bucket → Name: project-assets → Public: false
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'project-assets',
@@ -205,4 +137,3 @@ create policy "Users manage own assets"
   for all
   using (bucket_id = 'project-assets' and auth.uid()::text = (storage.foldername(name))[1])
   with check (bucket_id = 'project-assets' and auth.uid()::text = (storage.foldername(name))[1]);
->>>>>>> 640877f (fix: resolve all 14 production issues)
