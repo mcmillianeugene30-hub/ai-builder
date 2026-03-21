@@ -12,3 +12,11 @@ export function supabaseBrowser(): SupabaseClient {
   }
   return _supabase
 }
+
+export function getSupabaseBrowser(): SupabaseClient | null {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    console.warn('Supabase env vars not set — browser client unavailable')
+    return null
+  }
+  return supabaseBrowser()
+}
