@@ -42,13 +42,6 @@ function errorReducer(state: ErrorState, action: ErrorAction): ErrorState {
         toasts = toasts.slice(0, 5)
       }
 
-      const duration = DURATION[action.error.severity]
-      if (duration !== null) {
-        setTimeout(() => {
-          dispatchRef.current?.({ type: 'DISMISS_TOAST', id: toast.id })
-        }, duration)
-      }
-
       return {
         ...state,
         toasts,
@@ -90,6 +83,13 @@ export function ErrorProvider({ children }: { children: ReactNode }) {
 
   const addError = useCallback((error: AppError) => {
     dispatchRef.current?.({ type: 'ADD_ERROR', error })
+
+    const duration = DURATION[error.severity]
+    if (duration !== null) {
+      setTimeout(() => {
+        dispatchRef.current?.({ type: 'DISMISS_TOAST', id: error.id })
+      }, duration)
+    }
   }, [])
 
   const dismissToast = useCallback((id: string) => {

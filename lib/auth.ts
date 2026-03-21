@@ -1,4 +1,5 @@
-import { redirect } from 'next/navigation'
+'use client'
+
 import { supabaseBrowser } from './supabase-browser'
 
 export async function signUp(
@@ -9,7 +10,8 @@ export async function signUp(
   if (error) {
     return { error: error.message }
   }
-  redirect('/login?message=check_email')
+  window.location.href = '/login?message=check_email'
+  return { error: null }
 }
 
 export async function signIn(
@@ -23,10 +25,11 @@ export async function signIn(
   if (error) {
     return { error: error.message }
   }
-  redirect('/dashboard')
+  window.location.href = '/dashboard'
+  return { error: null }
 }
 
 export async function signOut(): Promise<void> {
   await supabaseBrowser.auth.signOut()
-  redirect('/login')
+  window.location.href = '/login'
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useEditor } from '@/lib/editor-store'
 import { compileFiles, sanitizeHTML } from '@/lib/preview-compiler'
 import { PreviewToolbar } from './PreviewToolbar'
@@ -21,8 +21,7 @@ export function PreviewPanel() {
     setLastCompiledAt(new Date())
   }, [project?.files])
 
-  // eslint-disable-next-line @typescript-eslint/no-floating-promises
-  useCallback(() => {
+  useEffect(() => {
     recompile()
   }, [recompile])
 

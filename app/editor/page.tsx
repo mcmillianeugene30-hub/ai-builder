@@ -15,7 +15,6 @@ import { DeployButton } from '@/components/deploy/DeployButton'
 import { DeploymentHistory } from '@/components/deploy/DeploymentHistory'
 import { AssetUploader } from '@/components/storage/AssetUploader'
 import { AssetList } from '@/components/storage/AssetList'
-import { seedProjectFromAI } from '@/lib/projects'
 import { supabaseBrowser } from '@/lib/supabase-browser'
 import type { Project, StoredAsset } from '@/lib/types'
 
@@ -49,13 +48,43 @@ function EditorTopBar({ projectId }: { projectId: string }) {
         handleError(new Error(json.error ?? 'Generation failed'))
         return
       }
-      // seedProjectFromAI creates a NEW project — extract its files
-      const seededProject: Project = await seedProjectFromAI(currentUserId, project.name, json.data)
-      // Patch the existing project with the new files
+      // Build files from AI-generated scaffold client-side
+      const generatedApp = json.data
+      const files: { name: string; path: string; content: string; language: string }[] = []
+
+      for (const route of generatedApp.backend.routes) {
+        files.push({
+          name: `route-${route.path.replace(/\//g, '-')}.ts`,
+          path: `app/api/${route.path}/route.ts`,
+          content: `// ${route.method} ${route.path} — ${route.description}`,
+          language: 'typescript',
+        })
+      }
+      for (const page of generatedApp.frontend.pages) {
+        files.push({
+          name: `page-${page.replace(/\//g, '-')}.tsx`,
+          path: `app${page}/page.tsx`,
+          content: `// Page: ${page}`,
+          language: 'typescript',
+        })
+      }
+      if (generatedApp.database.tables.length > 0) {
+        const tableComments = generatedApp.database.tables
+          .map((t: { name: string }) => `// Table: ${t.name}`)
+          .join('\n')
+        files.push({
+          name: 'db-schema.ts',
+          path: 'lib/db-schema.ts',
+          content: `// Database Schema\n${tableComments}`,
+          language: 'typescript',
+        })
+      }
+
+      // Patch the existing project with the generated files
       await fetch(`/api/projects/${projectId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ files: seededProject.files }),
+        body: JSON.stringify({ files }),
       })
       // Reload the project from server
       const updated = await fetch(`/api/projects/${projectId}`).then(r => r.json())
@@ -68,7 +97,7 @@ function EditorTopBar({ projectId }: { projectId: string }) {
       setGenerating(false)
       setPrompt('')
     }
-  }, [prompt, project, generating, projectId, currentUserId, handleError])
+  }, [prompt, project, generating, projectId, handleError])
 
   return (
     <div className="editor-topbar">
