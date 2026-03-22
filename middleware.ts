@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const PUBLIC_PATHS = [
-  '/login',
-  '/register',
-  '/auth/callback',
-]
+import { createClient } from '@supabase/supabase-js'
+import { isAdmin, hasActiveSubscription } from '@/lib/billing'
 
 const PUBLIC_API_PATHS = [
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/signout',
   '/api/auth/callback',
+  '/api/billing',
+  '/api/generate',
 ]
 
 const PROTECTED_PATTERNS = [
@@ -19,12 +17,20 @@ const PROTECTED_PATTERNS = [
   '/editor',
 ]
 
-function decodeSupabaseJWT(token: string): { sub: string; email?: string } | null {
+async function getUserFromRequest(req: NextRequest) {
+  const accessToken = req.cookies.get('sb-access-token')?.value
+  if (!accessToken) return null
   try {
-    const parts = token.split('.')
-    if (parts.length !== 3) return null
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
-    return { sub: payload.sub, email: payload.email }
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: { headers: { cookie: `sb-access-token=${accessToken}` } },
+        auth: { persistSession: false },
+      }
+    )
+    const { data } = await supabase.auth.getUser()
+    return data.user
   } catch {
     return null
   }
@@ -33,49 +39,72 @@ function decodeSupabaseJWT(token: string): { sub: string; email?: string } | nul
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Public pages — always allow
-  if (PUBLIC_PATHS.includes(pathname)) {
+  // Allow public API auth routes without session check
+  if (PUBLIC_API_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next()
   }
 
-  // Public API auth routes — always allow
-  if (PUBLIC_API_PATHS.includes(pathname)) {
+  // Allow pricing and billing pages — users need to reach these to subscribe
+  if (pathname === '/pricing' || pathname.startsWith('/billing')) {
     return NextResponse.next()
   }
 
-  const isProtected =
-    PROTECTED_PATTERNS.some((p) => pathname.startsWith(p)) ||
-    pathname.startsWith('/api/') ||
-    pathname === '/'
+  // Allow login, register, auth callback
+  const isAuthPage =
+    pathname === '/login' ||
+    pathname === '/register' ||
+    pathname.startsWith('/auth/')
 
-  if (!isProtected) return NextResponse.next()
+  if (isAuthPage) {
+    return NextResponse.next()
+  }
 
-  // Read the access token cookie
-  const accessToken = req.cookies.get('sb-access-token')?.value
+  // Allow static assets and Next.js internals
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon') ||
+    pathname.includes('.')
+  ) {
+    return NextResponse.next()
+  }
 
-  if (!accessToken) {
-    // No token — redirect to login
+  const user = await getUserFromRequest(req)
+
+  // Not logged in — redirect to login
+  if (!user) {
     const loginUrl = req.nextUrl.clone()
     loginUrl.pathname = '/login'
     return NextResponse.redirect(loginUrl)
   }
 
-  // Decode JWT locally (no network call needed)
-  const payload = decodeSupabaseJWT(accessToken)
-
-  if (!payload?.sub) {
-    // Invalid token — clear cookies and redirect
-    const res = NextResponse.redirect(new URL('/login', req.url))
-    res.cookies.delete('sb-access-token')
-    res.cookies.delete('sb-refresh-token')
-    return res
+  // Auth pages → redirect to dashboard if logged in
+  if (isAuthPage && user) {
+    const dashUrl = req.nextUrl.clone()
+    dashUrl.pathname = '/dashboard'
+    return NextResponse.redirect(dashUrl)
   }
 
-  // User is authenticated — set user header and continue
-  const response = NextResponse.next()
-  response.headers.set('x-user-id', payload.sub)
-  if (payload.email) response.headers.set('x-user-email', payload.email)
-  return response
+  // Check subscription for protected app routes
+  const isProtected = PROTECTED_PATTERNS.some((p) =>
+    pathname.startsWith(p)
+  )
+
+  if (isProtected) {
+    const email = user.email ?? ''
+    const admin = isAdmin(email)
+
+    if (!admin) {
+      const hasActive = await hasActiveSubscription(user.id)
+      if (!hasActive) {
+        const pricingUrl = req.nextUrl.clone()
+        pricingUrl.pathname = '/pricing'
+        pricingUrl.searchParams.set('reason', 'subscription_required')
+        return NextResponse.redirect(pricingUrl)
+      }
+    }
+  }
+
+  return NextResponse.next()
 }
 
 export const config = {

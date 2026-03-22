@@ -56,7 +56,7 @@ export type PresenceState = {
 }
 
 export type RealtimePayload = {
-  eventType: "INSERT" | "UPDATE" | "DELETE"
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE'
   new: Project | null
   old: Project | null
 }
@@ -66,7 +66,7 @@ export type Deployment = {
   project_id: string
   user_id: string
   vercel_id: string
-  status: "queued" | "building" | "ready" | "error" | "canceled"
+  status: 'queued' | 'building' | 'ready' | 'error' | 'canceled'
   url: string | null
   error_message: string | null
   created_at: string
@@ -78,11 +78,11 @@ export type DeploymentResult = {
   liveUrl: string | null
 }
 
-export type ErrorSeverity = "low" | "medium" | "high" | "fatal"
+export type ErrorSeverity = 'low' | 'medium' | 'high' | 'fatal'
 
 export type ErrorModule =
-  | "AI_ENGINE" | "AUTH" | "PROJECTS" | "EDITOR"
-  | "PREVIEW" | "STORAGE" | "REALTIME" | "DEPLOY" | "SYSTEM"
+  | 'AI_ENGINE' | 'AUTH' | 'PROJECTS' | 'EDITOR'
+  | 'PREVIEW' | 'STORAGE' | 'REALTIME' | 'DEPLOY' | 'SYSTEM'
 
 export type AppError = {
   id: string
@@ -103,4 +103,59 @@ export type ToastItem = {
   severity: ErrorSeverity
   retryFn?: () => Promise<void>
   dismissedAt?: Date
+}
+
+// ─── Billing types ────────────────────────────────────────────────────────────
+
+export type PlanName = 'starter' | 'pro' | 'premium' | 'enterprise'
+export type BillingCycle = 'monthly' | 'annual'
+export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'trialing'
+
+export type Subscription = {
+  id: string
+  user_id: string
+  plan: PlanName
+  billing_cycle: BillingCycle
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  current_period_start: string | null
+  current_period_end: string | null
+  status: SubscriptionStatus
+  created_at: string
+  updated_at: string
+}
+
+export type BillingTransactionType =
+  | 'subscription_payment'
+  | 'ai_generation'
+  | 'mobile_build'
+  | 'custom_domain'
+  | 'refund'
+  | 'admin_grant'
+
+export type BillingTransaction = {
+  id: string
+  user_id: string
+  type: BillingTransactionType
+  amount_cents: number
+  description: string
+  stripe_payment_intent_id: string | null
+  reference_id: string | null
+  created_at: string
+}
+
+export type AccessCheckResult = {
+  allowed: boolean
+  isAdmin: boolean
+  plan: PlanName | null
+  amountCents: number
+  reason: string | null
+}
+
+export type PlanFeatures = {
+  maxProjects: number
+  maxUsers: number
+  maxDomains: number
+  mobileBuilds: boolean
+  prioritySupport: boolean
 }
