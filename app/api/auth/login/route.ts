@@ -1,25 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUser } from '@/lib/get-user'
-import { signIn } from '@/lib/auth'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 export async function POST(request: NextRequest) {
-  const user = await getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
-    const body = await request.json()
-    const { email, password } = body
+    const { email, password } = await request.json()
 
     if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Email and password are required' },
+        { status: 400 }
+      )
     }
 
-    await signIn(email, password)
+    const supabase = await createSupabaseServerClient()
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+
     return NextResponse.json({ success: true })
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Login failed'
-    return NextResponse.json({ error: message }, { status: 401 })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Login failed'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

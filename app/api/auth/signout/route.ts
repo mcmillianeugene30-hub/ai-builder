@@ -1,17 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
-export async function POST(req: NextRequest) {
-  // Auth check — require a valid session before signing out
-  const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function POST() {
+  try {
+    const supabase = await createSupabaseServerClient()
+    await supabase.auth.signOut()
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Sign out failed'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
-
-  await supabase.auth.signOut()
-  return NextResponse.json({ success: true })
 }
