@@ -108,8 +108,31 @@ Return ONLY this exact JSON structure — no markdown, no code fences, nothing e
         return { data: validated }
       }
       console.error(`Attempt ${attempt}: Invalid schema, raw:`, raw.slice(0, 200))
-    } catch (err) {
-      console.error(`Attempt ${attempt} failed:`, err)
+    } catch (err: unknown) {
+      // Surface OpenAI-specific errors immediately — don't retry
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'status' in err &&
+        typeof (err as Record<string, unknown>).status === 'number'
+      ) {
+        const status = (err as { status: number }).status
+        const message =
+          (err as { message?: string }).message ?? 'OpenAI request failed'
+
+        if (status === 429) {
+          return { error: 'OpenAI quota exceeded. Please check your plan and billing at platform.openai.com' }
+        }
+        if (status === 401) {
+          return { error: 'OpenAI API key is invalid. Check your OPENAI_API_KEY environment variable.' }
+        }
+        if (status === 403) {
+          return { error: 'OpenAI request forbidden. Check your API key permissions.' }
+        }
+        console.error(`OpenAI error ${status}: ${message}`)
+      } else {
+        console.error(`Attempt ${attempt} failed:`, err)
+      }
     }
   }
 
