@@ -1,38 +1,63 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+async function getUserFromRequest(req: NextRequest) {
+  const accessToken = req.cookies.get('sb-access-token')?.value
 
-  // Protected routes that require authentication
-  const isProtected = pathname.startsWith('/dashboard') ||
+  if (!accessToken) return null
+
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: { headers: { cookie: `sb-access-token=${accessToken}` } },
+        auth: { persistSession: false },
+      }
+    )
+    const { data } = await supabase.auth.getUser()
+    return data.user
+  } catch {
+    return null
+  }
+}
+
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl
+
+  const isProtected =
+    pathname.startsWith('/dashboard') ||
     pathname.startsWith('/editor') ||
-    pathname.startsWith('/projects')
+    pathname.startsWith('/projects') ||
+    pathname.startsWith('/api/') ||
+    pathname === '/'
 
-  // Auth routes that should redirect to dashboard if already logged in
-  const isAuthPage = pathname === '/login' || pathname === '/register'
+  const isAuthPage =
+    pathname === '/login' ||
+    pathname === '/register' ||
+    pathname.startsWith('/auth/')
 
-  // Read the Supabase auth cookie
-  const supabaseAuthCookie = request.cookies.get('sb-access-token')?.value ??
-    request.cookies.get('supabase-auth-token')?.value ??
-    request.cookies.getAll()
-      .find((c) => c.name.includes('supabase') && (c.name.includes('access') || c.name.includes('auth')))
-      ?.value ?? null
-
-  if (isProtected && !supabaseAuthCookie) {
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
+  if (isProtected && !isAuthPage) {
+    const user = await getUserFromRequest(req)
+    if (!user) {
+      const loginUrl = req.nextUrl.clone()
+      loginUrl.pathname = '/login'
+      return NextResponse.redirect(loginUrl)
+    }
   }
 
-  if (isAuthPage && supabaseAuthCookie) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+  if (isAuthPage) {
+    const user = await getUserFromRequest(req)
+    if (user) {
+      const dashUrl = req.nextUrl.clone()
+      dashUrl.pathname = '/dashboard'
+      return NextResponse.redirect(dashUrl)
+    }
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|api/).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }
