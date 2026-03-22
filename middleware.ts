@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+
+const PUBLIC_PATHS = [
+  '/login',
+  '/register',
+  '/auth/callback',
+]
 
 const PUBLIC_API_PATHS = [
   '/api/auth/login',
@@ -14,20 +19,12 @@ const PROTECTED_PATTERNS = [
   '/editor',
 ]
 
-async function getUserFromRequest(req: NextRequest) {
-  const accessToken = req.cookies.get('sb-access-token')?.value
-  if (!accessToken) return null
+function decodeSupabaseJWT(token: string): { sub: string; email?: string } | null {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: { headers: { cookie: `sb-access-token=${accessToken}` } },
-        auth: { persistSession: false },
-      }
-    )
-    const { data } = await supabase.auth.getUser()
-    return data.user
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return { sub: payload.sub, email: payload.email }
   } catch {
     return null
   }
@@ -36,42 +33,49 @@ async function getUserFromRequest(req: NextRequest) {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Allow public API auth routes through without auth check
+  // Public pages — always allow
+  if (PUBLIC_PATHS.includes(pathname)) {
+    return NextResponse.next()
+  }
+
+  // Public API auth routes — always allow
   if (PUBLIC_API_PATHS.includes(pathname)) {
     return NextResponse.next()
   }
 
-  const isProtected = (
+  const isProtected =
     PROTECTED_PATTERNS.some((p) => pathname.startsWith(p)) ||
     pathname.startsWith('/api/') ||
     pathname === '/'
-  )
 
-  const isAuthPage = (
-    pathname === '/login' ||
-    pathname === '/register' ||
-    pathname.startsWith('/auth/')
-  )
+  if (!isProtected) return NextResponse.next()
 
-  if (isProtected && !isAuthPage) {
-    const user = await getUserFromRequest(req)
-    if (!user) {
-      const loginUrl = req.nextUrl.clone()
-      loginUrl.pathname = '/login'
-      return NextResponse.redirect(loginUrl)
-    }
+  // Read the access token cookie
+  const accessToken = req.cookies.get('sb-access-token')?.value
+
+  if (!accessToken) {
+    // No token — redirect to login
+    const loginUrl = req.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    return NextResponse.redirect(loginUrl)
   }
 
-  if (isAuthPage) {
-    const user = await getUserFromRequest(req)
-    if (user) {
-      const dashUrl = req.nextUrl.clone()
-      dashUrl.pathname = '/dashboard'
-      return NextResponse.redirect(dashUrl)
-    }
+  // Decode JWT locally (no network call needed)
+  const payload = decodeSupabaseJWT(accessToken)
+
+  if (!payload?.sub) {
+    // Invalid token — clear cookies and redirect
+    const res = NextResponse.redirect(new URL('/login', req.url))
+    res.cookies.delete('sb-access-token')
+    res.cookies.delete('sb-refresh-token')
+    return res
   }
 
-  return NextResponse.next()
+  // User is authenticated — set user header and continue
+  const response = NextResponse.next()
+  response.headers.set('x-user-id', payload.sub)
+  if (payload.email) response.headers.set('x-user-email', payload.email)
+  return response
 }
 
 export const config = {
