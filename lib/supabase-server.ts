@@ -1,7 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import type { NextRequest } from 'next/server'
 
-export async function createSupabaseServerClient() {
+export async function createSupabaseServerClient(req?: NextRequest) {
   const cookieStore = await cookies()
 
   return createServerClient(
@@ -10,6 +11,7 @@ export async function createSupabaseServerClient() {
     {
       cookies: {
         getAll() {
+          if (req) return req.cookies.getAll()
           return cookieStore.getAll()
         },
         setAll(cookiesToSet) {
@@ -18,7 +20,7 @@ export async function createSupabaseServerClient() {
               cookieStore.set(name, value, options)
             )
           } catch {
-            // setAll called from Server Component — cookies set in middleware
+            // Server Component context
           }
         },
       },
