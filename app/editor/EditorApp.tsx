@@ -16,7 +16,9 @@ import { CollaboratorAvatars } from '@/components/realtime/CollaboratorAvatars'
 import { ConnectionStatus } from '@/components/realtime/ConnectionStatus'
 import { DeployButton } from '@/components/deploy/DeployButton'
 import { DeploymentHistory } from '@/components/deploy/DeploymentHistory'
-import type { Project, PresenceState } from '@/lib/types'
+import { AssetUploader } from '@/components/storage/AssetUploader'
+import { AssetList } from '@/components/storage/AssetList'
+import type { Project, StoredAsset } from '@/lib/types'
 
 function TopBar({ projectId, currentUserId }: { projectId: string; currentUserId: string }) {
   const { collaborators, isConnected } = useRealtime(projectId)
@@ -57,7 +59,13 @@ function EditorContent({
   const router = useRouter()
   const { handleError } = useErrorHandler()
   const [showHistory, setShowHistory] = useState(false)
+  const [showAssets, setShowAssets] = useState(false)
+  const [assets, setAssets] = useState<StoredAsset[]>([])
   useAutosave(projectId)
+
+  function handleUploadComplete(asset: StoredAsset) {
+    setAssets((prev) => [asset, ...prev])
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: '#0d1117' }}>
@@ -70,23 +78,39 @@ function EditorContent({
         </div>
         <PreviewPanel />
       </div>
+
+      {/* Bottom panels */}
       <div style={{ borderTop: '1px solid #333', background: '#161b22' }}>
-        <button
-          onClick={() => setShowHistory((v) => !v)}
-          style={{
-            width: '100%',
-            padding: '6px 16px',
-            textAlign: 'left',
-            background: 'transparent',
-            border: 'none',
-            color: '#8b949e',
-            fontSize: 12,
-            cursor: 'pointer',
-          }}
-        >
-          {showHistory ? '▼' : '▶'} Deployment History
-        </button>
+        <div style={{ display: 'flex' }}>
+          <button
+            onClick={() => setShowHistory((v) => !v)}
+            style={{
+              flex: 1, padding: '6px 16px', textAlign: 'left',
+              background: 'transparent', border: 'none', color: '#8b949e', fontSize: 12, cursor: 'pointer', borderRight: '1px solid #333',
+            }}
+          >
+            {showHistory ? '▼' : '▶'} Deployments
+          </button>
+          <button
+            onClick={() => setShowAssets((v) => !v)}
+            style={{
+              flex: 1, padding: '6px 16px', textAlign: 'left',
+              background: 'transparent', border: 'none', color: '#8b949e', fontSize: 12, cursor: 'pointer',
+            }}
+          >
+            {showAssets ? '▼' : '▶'} Assets
+          </button>
+        </div>
+
         {showHistory && <DeploymentHistory projectId={projectId} />}
+        {showAssets && (
+          <div style={{ padding: '12px 16px', maxHeight: 300, overflow: 'auto' }}>
+            <AssetUploader projectId={projectId} onUploadComplete={handleUploadComplete} />
+            <div style={{ marginTop: 12 }}>
+              <AssetList projectId={projectId} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
