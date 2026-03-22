@@ -1,4 +1,4 @@
-import { getOpenAI } from './openai'
+import { getProviders, getAvailableProviders } from './ai-providers'
 
 export type GeneratedApp = {
   frontend: {
@@ -54,29 +54,9 @@ function validateSchema(raw: string): GeneratedApp | null {
   }
 }
 
-async function callAI(prompt: string): Promise<string> {
-  const response = await getOpenAI().chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'system',
-        content:
-          'You are a JSON-only machine. Return ONLY valid JSON. No markdown. No code fences. No explanation. Start with { and end with }',
-      },
-      { role: 'user', content: prompt },
-    ],
-    max_tokens: 4000,
-    temperature: 0,
-  })
-  return response.choices[0]!.message.content!
-}
+const SYSTEM_PROMPT = `You are a JSON-only machine. Return ONLY valid JSON. No markdown. No code fences. No explanation. Start with { and end with }.
 
-export async function generateApp(
-  prompt: string
-): Promise<{ data?: GeneratedApp; error?: string }> {
-  const systemPrompt = `Given the following app description, generate a complete project scaffold in JSON format.
-
-Return ONLY this exact JSON structure — no markdown, no code fences, nothing else:
+Return this exact JSON structure:
 {
   "frontend": {
     "framework": "string",
@@ -100,41 +80,60 @@ Return ONLY this exact JSON structure — no markdown, no code fences, nothing e
   }
 }`
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
+function getErrorMessage(err: unknown, provider: string): string {
+  if (typeof err !== 'object' || err === null) return `${provider} request failed`
+
+  const obj = err as Record<string, unknown>
+
+  // OpenAI-style errors
+  if ('status' in obj && typeof obj.status === 'number') {
+    const status = obj.status as number
+    const message = (obj.message as string) ?? `HTTP ${status}`
+    if (status === 429) return 'AI quota exceeded. Try again in a moment.'
+    if (status === 401) return `${provider} API key is invalid.`
+    if (status === 403) return `${provider} access forbidden.`
+    return `${provider} error (${status}): ${message}`
+  }
+
+  // Groq / OpenRouter fetch errors
+  if (typeof obj.message === 'string') return `${provider}: ${obj.message}`
+  return `${provider} request failed`
+}
+
+export async function generateApp(
+  prompt: string
+): Promise<{ data?: GeneratedApp; error?: string; provider?: string }> {
+  const providers = getProviders()
+
+  if (providers.length === 0) {
+    return { error: 'No AI providers configured. Add at least one API key (OpenAI, Groq, OpenRouter, or Gemini).' }
+  }
+
+  const availableProviders = getAvailableProviders()
+  console.log(`[generate] Available providers: ${availableProviders.join(', ')}`)
+
+  // Try each provider, 1 attempt each
+  for (const provider of providers) {
+    console.log(`[generate] Trying ${provider.name}...`)
     try {
-      const raw = await callAI(`${systemPrompt}\n\nUser: ${prompt}`)
+      const raw = await provider.generate(prompt, SYSTEM_PROMPT)
       const validated = validateSchema(raw)
       if (validated) {
-        return { data: validated }
+        console.log(`[generate] Success using ${provider.name}`)
+        return { data: validated, provider: provider.name }
       }
-      console.error(`Attempt ${attempt}: Invalid schema, raw:`, raw.slice(0, 200))
-    } catch (err: unknown) {
-      // Surface OpenAI-specific errors immediately — don't retry
-      if (
-        typeof err === 'object' &&
-        err !== null &&
-        'status' in err &&
-        typeof (err as Record<string, unknown>).status === 'number'
-      ) {
-        const status = (err as { status: number }).status
-        const message =
-          (err as { message?: string }).message ?? 'OpenAI request failed'
-
-        if (status === 429) {
-          return { error: 'OpenAI quota exceeded. Please check your plan and billing at platform.openai.com' }
-        }
-        if (status === 401) {
-          return { error: 'OpenAI API key is invalid. Check your OPENAI_API_KEY environment variable.' }
-        }
-        if (status === 403) {
-          return { error: 'OpenAI request forbidden. Check your API key permissions.' }
-        }
-        console.error(`OpenAI error ${status}: ${message}`)
-      } else {
-        console.error(`Attempt ${attempt} failed:`, err)
+      console.error(`[generate] ${provider.name} returned invalid schema`)
+    } catch (err) {
+      const msg = getErrorMessage(err, provider.name)
+      console.error(`[generate] ${provider.name} failed: ${msg}`)
+      // If it's a hard auth error (bad key), don't try other providers — they're also not configured
+      if (msg.includes('invalid') || msg.includes('forbidden') || msg.includes('401') || msg.includes('403')) {
+        return { error: msg }
       }
     }
   }
 
-  return { error: 'Failed to generate valid output after 3 attempts' }
+  return {
+    error: `All AI providers failed. Available: ${availableProviders.join(', ')}. Add API keys in Vercel environment variables.`,
+  }
 }
