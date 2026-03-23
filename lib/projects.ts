@@ -1,134 +1,118 @@
-import { createSupabaseServerClient } from './supabase-server'
-import { GeneratedApp } from './generate'
-import { deleteProjectAssets } from './storage'
-import type {
-  Project,
-  CreateProjectInput,
-  UpdateProjectInput,
-  ProjectFile,
-} from './types'
+import { createClient } from '@supabase/supabase-js';
+import { supabase } from './supabase-server';
+import type { Project, ProjectFile, GeneratedApp } from './types';
 
 export async function createProject(
   userId: string,
-  input: CreateProjectInput
-): Promise<Project> {
-  const supabase = await createSupabaseServerClient()
+  name: string,
+  description: string | null = null
+): Promise<Project | null> {
   const { data, error } = await supabase
     .from('projects')
-    .insert({ user_id: userId, name: input.name, description: input.description ?? null, files: input.files ?? [] })
+    .insert({ user_id: userId, name, description })
     .select()
-    .single()
+    .single();
 
-  if (error || !data) throw new Error('Failed to create project')
-  return data as Project
+  if (error) {
+    console.error('[projects] Error creating project:', error);
+    return null;
+  }
+
+  return data as Project;
 }
 
-export async function getProject(
-  userId: string,
-  projectId: string
-): Promise<Project | null> {
-  try {
-    const supabase = await createSupabaseServerClient()
-    const { data } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('id', projectId)
-      .eq('user_id', userId)
-      .single()
-    return data as Project | null
-  } catch {
-    return null
-  }
-}
+export async function getProject(projectId: string, userId: string): Promise<Project | null> {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('id', projectId)
+    .eq('user_id', userId)
+    .single();
 
-export async function listProjects(userId: string): Promise<Project[]> {
-  try {
-    const supabase = await createSupabaseServerClient()
-    const { data } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
-    return (data ?? []) as Project[]
-  } catch {
-    return []
+  if (error) {
+    console.error('[projects] Error fetching project:', error);
+    return null;
   }
+
+  return data as Project;
 }
 
 export async function updateProject(
-  userId: string,
   projectId: string,
-  input: UpdateProjectInput
-): Promise<Project> {
-  const supabase = await createSupabaseServerClient()
-  const updates: Record<string, unknown> = {}
-  if (input.name !== undefined) updates.name = input.name
-  if (input.description !== undefined) updates.description = input.description
-  if (input.files !== undefined) updates.files = input.files
-
+  userId: string,
+  updates: Partial<Pick<Project, 'name' | 'description' | 'files'>>
+): Promise<Project | null> {
   const { data, error } = await supabase
     .from('projects')
     .update(updates)
     .eq('id', projectId)
     .eq('user_id', userId)
     .select()
-    .single()
+    .single();
 
-  if (error || !data) throw new Error('Failed to update project')
-  return data as Project
+  if (error) {
+    console.error('[projects] Error updating project:', error);
+    return null;
+  }
+
+  return data as Project;
 }
 
-export async function deleteProject(
-  userId: string,
-  projectId: string
-): Promise<void> {
-  const supabase = await createSupabaseServerClient()
+export async function deleteProject(projectId: string, userId: string): Promise<boolean> {
   const { error } = await supabase
     .from('projects')
     .delete()
     .eq('id', projectId)
-    .eq('user_id', userId)
+    .eq('user_id', userId);
 
-  if (error) throw new Error('Failed to delete project')
-  await deleteProjectAssets(userId, projectId)
+  if (error) {
+    console.error('[projects] Error deleting project:', error);
+    return false;
+  }
+
+  return true;
 }
 
-export async function seedProjectFromAI(
-  userId: string,
-  projectName: string,
-  generatedApp: GeneratedApp
-): Promise<Project> {
-  const files: ProjectFile[] = []
+export async function listProjects(userId: string): Promise<Project[]> {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false });
 
-  for (const route of generatedApp.backend.routes) {
-    files.push({
-      name: `route-${route.path.replace(/\//g, '-')}.ts`,
-      path: `app/api/${route.path}/route.ts`,
-      content: `// ${route.method} ${route.path} — ${route.description}`,
-      language: 'typescript',
-    })
+  if (error) {
+    console.error('[projects] Error listing projects:', error);
+    return [];
   }
 
-  for (const page of generatedApp.frontend.pages) {
-    files.push({
-      name: `page-${page.replace(/\//g, '-')}.tsx`,
-      path: `app${page}/page.tsx`,
-      content: `// Page: ${page}`,
-      language: 'typescript',
-    })
-  }
+  return (data ?? []) as Project[];
+}
 
-  if (generatedApp.database.tables.length > 0) {
-    const tableComments = generatedApp.database.tables
-      .map((t) => `// Table: ${t.name}`)
-      .join('\n')
-    files.push({
-      name: 'db-schema.ts',
-      path: 'lib/db-schema.ts',
-      content: `// Database Schema\n${tableComments}`,
-      language: 'typescript',
-    })
-  }
+export function seedProjectFromAI(
+  app: GeneratedApp,
+  userId: string
+): { name: string; description: string; files: ProjectFile[] } {
+  const files: ProjectFile[] = [];
 
-  return createProject(userId, { name: projectName, files })
+  // Generate frontend files from components
+  app.frontend.components.forEach((component) => {
+    files.push({
+      path: `frontend/src/components/${component}.tsx`,
+      content: `// Component: ${component}\nexport function ${component}() {\n  return <div>${component}</div>;\n}`,
+    });
+  });
+
+  // Generate backend files from apiRoutes
+  (app.backend.apiRoutes ?? []).forEach((route) => {
+    files.push({
+      path: `backend/src/routes/${route}`,
+      content: `// API Route: ${route}\nexport default function handler(req, res) {\n  res.status(200).json({ message: 'OK' });\n}`,
+    });
+  });
+
+  return {
+    name: 'AI Generated App',
+    description: `Generated with ${app.frontend.framework} frontend and ${app.backend.framework} backend`,
+    files,
+  };
 }

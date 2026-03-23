@@ -1,38 +1,24 @@
-import { NextResponse } from 'next/server'
-import { getUser } from '@/lib/get-user'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { getPlanConfig } from '@/lib/pricing'
-import { AI_MODELS } from '@/lib/models'
+import { NextRequest, NextResponse } from 'next/server';
+import { getUser } from '@/lib/supabase-server';
+import { getSubscription } from '@/lib/billing';
+import { supabase } from '@/lib/supabase-server';
 
-export async function GET() {
-  const user = await getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export async function GET(req: NextRequest) {
+  const user = await getUser(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const supabase = await createSupabaseServerClient()
-
-  const { data: sub } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('user_id', user.id)
-    .single()
-
+  const subscription = await getSubscription(user.id);
   const { data: transactions } = await supabase
     .from('billing_transactions')
     .select('*')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-    .limit(50)
-
-  const planConfig = sub ? getPlanConfig(sub.plan as 'starter' | 'pro' | 'premium' | 'enterprise') : null
+    .limit(50);
 
   return NextResponse.json({
     data: {
-      subscription: sub,
+      subscription,
       transactions: transactions ?? [],
-      planConfig,
-      availableModels: AI_MODELS,
     },
-  })
+  });
 }

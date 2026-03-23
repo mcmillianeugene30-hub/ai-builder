@@ -1,15 +1,25 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getUser } from "@/lib/get-user"
-import { listDeployments } from "@/lib/deploy"
+import { NextRequest, NextResponse } from 'next/server';
+import { getUser, supabase } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
-  const user = await getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const user = await getUser(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { searchParams } = new URL(req.url)
-  const projectId = searchParams.get("projectId")
-  if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 })
+  const projectId = new URL(req.url).searchParams.get('projectId');
+  if (!projectId) {
+    return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
+  }
 
-  const deployments = await listDeployments(user.id, projectId)
-  return NextResponse.json({ data: deployments })
+  const { data, error } = await supabase
+    .from('deployments')
+    .select('id, vercel_id, status, url, error_message, created_at, updated_at')
+    .eq('project_id', projectId)
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ data: data ?? [] });
 }

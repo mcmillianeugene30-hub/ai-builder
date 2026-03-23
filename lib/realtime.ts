@@ -1,36 +1,72 @@
-import { RealtimeChannel } from '@supabase/supabase-js'
-import { supabaseBrowser } from './supabase-browser'
-import type { Collaborator, RealtimePayload } from './types'
+import { RealtimeChannel } from '@supabase/supabase-js';
+import { supabase } from './supabase-browser';
 
-export function createProjectChannel(projectId: string): RealtimeChannel {
-  return supabaseBrowser().channel(`project:${projectId}`)
+export interface PresenceState {
+  userId: string;
+  userName: string;
+  color: string;
+  cursor?: { line: number; column: number };
+  activeFile?: string;
+  online_at?: string;
 }
 
-export function subscribeToProjectChanges(
-  channel: RealtimeChannel,
-  onUpdate: (payload: RealtimePayload) => void
-): void {
-  channel.on(
-    'postgres_changes',
-    {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'projects',
-      filter: `id=eq.${channel.topic.replace('project:', '')}`,
+export function createProjectChannel(
+  projectId: string,
+  userId: string,
+  userName: string,
+  color: string
+): RealtimeChannel {
+  const channel = supabase.channel(`project:${projectId}`, {
+    config: {
+      presence: { key: userId },
+      broadcast: { self: false },
     },
-    (payload) => {
-      onUpdate(payload as unknown as RealtimePayload)
-    }
-  )
+  });
+
+  return channel;
 }
 
-export function trackPresence(
+export function subscribeToProjectChannel(
   channel: RealtimeChannel,
-  collaborator: Collaborator
-): void {
-  channel.track(collaborator)
+  userId: string,
+  userName: string,
+  color: string,
+  onFileUpdate: (payload: { filePath: string; content: string; userId: string }) => void,
+  onPresenceSync: (state: Record<string, PresenceState[]>) => void
+): () => void {
+  const subscription = channel
+    .on('broadcast', { event: 'file_update' }, (payload) => {
+      onFileUpdate(payload.payload as { filePath: string; content: string; userId: string });
+    })
+    .on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState<PresenceState>();
+      onPresenceSync(state as Record<string, PresenceState[]>);
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track({
+          userId,
+          userName,
+          color,
+          online_at: new Date().toISOString(),
+        } satisfies PresenceState);
+      }
+    });
+
+  return () => {
+    channel.unsubscribe();
+  };
 }
 
-export function unsubscribeChannel(channel: RealtimeChannel): void {
-  supabaseBrowser().removeChannel(channel)
+export function broadcastFileUpdate(
+  channel: RealtimeChannel,
+  filePath: string,
+  content: string,
+  userId: string
+): void {
+  channel.send({
+    type: 'broadcast',
+    event: 'file_update',
+    payload: { filePath, content, userId },
+  });
 }

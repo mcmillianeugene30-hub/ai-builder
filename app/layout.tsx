@@ -1,29 +1,15 @@
-import type { Metadata } from 'next'
-import './globals.css'
-import { AuthProvider } from '@/components/AuthProvider'
-import { ErrorProvider } from '@/lib/error-store'
-import { Nav } from '@/components/Nav'
+import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'AI App Builder',
-  description: 'Build production apps with AI',
-}
+  title: "AI App Scaffold Generator",
+  description: "Generate production app scaffolds with AI",
+};
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
-        <ErrorProvider>
-          <AuthProvider>
-            <Nav />
-            {children}
-          </AuthProvider>
-        </ErrorProvider>
-      </body>
+      <body className="min-h-screen">{children}</body>
     </html>
-  )
+  );
 }

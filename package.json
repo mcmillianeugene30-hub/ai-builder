@@ -1,32 +1,30 @@
 {
-  "name": "ai-generation-engine",
-  "version": "1.0.0",
+  "name": "ai-app-scaffold",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
-    "@monaco-editor/react": "^4.7.0",
+    "@sentry/nextjs": "^10.45.0",
     "@stripe/stripe-js": "^8.11.0",
-    "@supabase/ssr": "^0.9.0",
-    "@supabase/supabase-js": "^2.99.3",
-    "groq-sdk": "^1.1.1",
-    "next": "^15.2.4",
-    "openai": "^4.77.0",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "stripe": "^20.4.1"
+    "@supabase/supabase-js": "^2.45.4",
+    "@tailwindcss/postcss": "^4.2.2",
+    "next": "14.2.15",
+    "openai": "^4.65.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-error-boundary": "^6.1.1",
+    "stripe": "^20.4.1",
+    "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.2.2",
-    "@types/node": "^20.0.0",
-    "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
-    "autoprefixer": "^10.4.27",
-    "postcss": "^8.5.8",
-    "tailwindcss": "^4.2.2",
-    "typescript": "^5.4.0"
+    "@types/node": "^20.16.11",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.3"
   }
 }

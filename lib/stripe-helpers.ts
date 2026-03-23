@@ -1,91 +1,91 @@
-import Stripe from 'stripe'
-import { getPlanConfig } from './pricing'
+import { getStripe } from './stripe';
+import { supabase } from './supabase-server';
+import { PLAN_FEATURES, type PlanName } from './pricing';
 
-export type PlanName = 'starter' | 'pro' | 'premium' | 'enterprise'
-export type BillingCycle = 'monthly' | 'annual'
-
-export type CheckoutSessionResult = {
-  url: string
-  sessionId: string
-}
-
-export function getStripe(): Stripe {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2025-02-24.acacia' as Stripe.LatestApiVersion,
-  })
-}
-
-export async function createCheckoutSession({
-  userId,
-  email,
-  plan,
-  billingCycle,
-}: {
-  userId: string
-  email: string
-  plan: PlanName
-  billingCycle: BillingCycle
-}): Promise<CheckoutSessionResult> {
-  const stripe = getStripe()
-  const planConfig = getPlanConfig(plan)
-  const priceKey = billingCycle === 'monthly' ? 'monthly' : 'annual'
-  const priceId = planConfig.stripePriceIds?.[priceKey] ?? null
-
-  if (!priceId) {
-    throw new Error(`No Stripe price ID for plan ${plan} / ${billingCycle}`)
-  }
-
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    customer_email: email,
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?canceled=1`,
-    metadata: { userId, plan, billingCycle },
-    subscription_data: {
-      metadata: { userId, plan },
-      trial_period_days: planConfig.trialDays ?? undefined,
-    },
-    allow_promotion_codes: true,
-  })
-
-  if (!session.url || !session.id) {
-    throw new Error('Failed to create Stripe checkout session')
-  }
-
-  return { url: session.url, sessionId: session.id }
-}
-
-export async function createPortalSession({
-  customerId,
-  returnUrl,
-}: {
+export async function handleSubscriptionActivated(
+  subscriptionId: string,
   customerId: string
-  returnUrl: string
-}): Promise<string> {
-  const stripe = getStripe()
-  const session = await stripe.billingPortal.sessions.create({
-    customer: customerId,
-    return_url: returnUrl,
-  })
-  return session.url
+): Promise<void> {
+  const sub = await getStripe().subscriptions.retrieve(subscriptionId);
+  const userId = sub.metadata?.user_id;
+  if (!userId) {
+    console.error('[stripe-helpers] No user_id in subscription metadata');
+    return;
+  }
+
+  const priceId = sub.items.data[0]?.price.id;
+  const plan = inferPlanFromPriceId(priceId);
+  if (!plan) {
+    console.error('[stripe-helpers] Unknown price ID:', priceId);
+    return;
+  }
+
+  const billingCycle = sub.items.data[0]?.price.recurring?.interval === 'year' ? 'annual' : 'monthly';
+
+  const { error } = await supabase.from('subscriptions').upsert({
+    user_id: userId,
+    plan,
+    billing_cycle: billingCycle,
+    stripe_customer_id: customerId,
+    stripe_subscription_id: subscriptionId,
+    current_period_start: new Date((sub as any).current_period_start * 1000).toISOString(),
+    current_period_end: new Date((sub as any).current_period_end * 1000).toISOString(),
+    status: 'active',
+  }, { onConflict: 'user_id' });
+
+  if (error) {
+    console.error('[stripe-helpers] Error upserting subscription:', error);
+    return;
+  }
+
+  await supabase.from('billing_transactions').insert({
+    user_id: userId,
+    type: 'subscription_payment',
+    amount_cents: sub.items.data[0]?.price.unit_amount ?? 0,
+    description: `${plan} ${billingCycle} subscription`,
+    stripe_payment_intent_id: sub.latest_invoice as string ?? null,
+    reference_id: subscriptionId,
+  });
 }
 
-export async function reportMeteredUsage(
+export async function handleSubscriptionCanceled(subscriptionId: string): Promise<void> {
+  await supabase
+    .from('subscriptions')
+    .update({ status: 'canceled' })
+    .eq('stripe_subscription_id', subscriptionId);
+}
+
+export async function handlePaymentSucceeded(
   customerId: string,
-  quantity: number
+  amountCents: number,
+  description: string,
+  paymentIntentId: string
 ): Promise<void> {
-  const stripe = getStripe()
-  await stripe.billingPortal.sessions.create({
-    customer: customerId,
-    return_url: process.env.NEXT_PUBLIC_APP_URL!,
-  })
-  await stripe.customers.retrieve(customerId)
+  const { data: sub } = await supabase
+    .from('subscriptions')
+    .select('user_id')
+    .eq('stripe_customer_id', customerId)
+    .single();
+
+  const userId = sub?.user_id ?? null;
+
+  await supabase.from('billing_transactions').insert({
+    user_id: userId,
+    type: 'subscription_payment',
+    amount_cents: amountCents,
+    description,
+    stripe_payment_intent_id: paymentIntentId,
+  });
 }
 
-export async function cancelSubscription(
-  subscriptionId: string
-): Promise<void> {
-  const stripe = getStripe()
-  await stripe.subscriptions.cancel(subscriptionId)
+function inferPlanFromPriceId(priceId: string): PlanName | null {
+  const plans: PlanName[] = ['starter', 'pro', 'premium', 'enterprise'];
+  for (const plan of plans) {
+    const monthlyKey = `STRIPE_PRICE_${plan.toUpperCase()}_MONTHLY`;
+    const annualKey = `STRIPE_PRICE_${plan.toUpperCase()}_ANNUAL`;
+    if (process.env[monthlyKey] === priceId || process.env[annualKey] === priceId) {
+      return plan;
+    }
+  }
+  return null;
 }

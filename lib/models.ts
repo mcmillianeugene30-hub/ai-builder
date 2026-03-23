@@ -1,97 +1,42 @@
-import type { AIProviderType, AIModel } from '@/lib/types'
+export type ModelProvider = 'openai' | 'groq' | 'openrouter';
 
-export const AI_MODELS: AIModel[] = [
-  // ─── GROQ (free tier, fast) ────────────────────────────────────────────────
-  {
-    id: 'llama-3.1-70b-versatile',
-    displayName: 'Llama 3.1 70B',
-    provider: 'groq',
-    costCents: 15,
-    isDefault: true,
-    description: 'Fast and capable. Best for most apps.',
-  },
-  {
-    id: 'llama-3.1-8b-instant',
-    displayName: 'Llama 3.1 8B',
-    provider: 'groq',
-    costCents: 15,
-    isDefault: false,
-    description: 'Fastest response. Good for simple apps.',
-  },
-  {
-    id: 'deepseek-r1-distill-llama-70b',
-    displayName: 'DeepSeek R1',
-    provider: 'groq',
-    costCents: 15,
-    isDefault: false,
-    description: 'Strong reasoning. Good for complex logic.',
-  },
-
-  // ─── OPENROUTER (free tier pool) ──────────────────────────────────────────
-  {
-    id: 'mistralai/mistral-7b-instruct',
-    displayName: 'Mistral 7B',
-    provider: 'openrouter',
-    costCents: 15,
-    isDefault: false,
-    description: 'Lightweight and efficient.',
-  },
-  {
-    id: 'google/gemma-2-9b-it:free',
-    displayName: 'Gemma 2 9B',
-    provider: 'openrouter',
-    costCents: 15,
-    isDefault: false,
-    description: 'Google model, strong instruction following.',
-  },
-  {
-    id: 'meta-llama/llama-3.2-3b-instruct',
-    displayName: 'Llama 3.2 3B',
-    provider: 'openrouter',
-    costCents: 15,
-    isDefault: false,
-    description: 'Ultra fast, minimal cost.',
-  },
-  {
-    id: 'qwen/qwen-2.5-72b-instruct',
-    displayName: 'Qwen 2.5 72B',
-    provider: 'openrouter',
-    costCents: 15,
-    isDefault: false,
-    description: 'Large model, strong code generation.',
-  },
-
-  // ─── OPENAI (premium) ──────────────────────────────────────────────────────
-  {
-    id: 'gpt-4o-mini',
-    displayName: 'GPT-4o Mini',
-    provider: 'openai',
-    costCents: 15,
-    isDefault: false,
-    description: 'OpenAI quality at standard price.',
-  },
-  {
-    id: 'gpt-4o',
-    displayName: 'GPT-4o',
-    provider: 'openai',
-    costCents: 30,
-    isDefault: false,
-    description: 'Highest quality. Best for complex apps. $0.30/gen.',
-  },
-]
-
-export const DEFAULT_MODEL = AI_MODELS.find((m) => m.isDefault)!
-
-export function getModel(modelId: string): AIModel | null {
-  return AI_MODELS.find((m) => m.id === modelId) ?? null
+export interface AIModel {
+  id: string;
+  name: string;
+  provider: ModelProvider;
+  contextWindow: number;
+  supportsCache?: boolean;
 }
 
-export function getModelsByProvider(provider: AIProviderType): AIModel[] {
-  return AI_MODELS.filter((m) => m.provider === provider)
+export const MODELS: AIModel[] = [
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'openai', contextWindow: 128000 },
+  { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai', contextWindow: 128000 },
+  { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'openai', contextWindow: 128000 },
+  { id: 'llama-3.1-70b-versatile', name: 'Llama 3.1 70B', provider: 'groq', contextWindow: 128000 },
+  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', provider: 'groq', contextWindow: 128000 },
+  { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', provider: 'groq', contextWindow: 32768 },
+  { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini (OR)', provider: 'openrouter', contextWindow: 128000 },
+  { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'openrouter', contextWindow: 200000 },
+  { id: 'google/gemini-pro-1.5', name: 'Gemini Pro 1.5', provider: 'openrouter', contextWindow: 2000000 },
+];
+
+export const MODEL_FALLBACKS: Record<string, string[]> = {
+  'gpt-4o-mini': ['gpt-4o', 'llama-3.1-70b-versatile'],
+  'gpt-4o': ['gpt-4-turbo', 'llama-3.1-70b-versatile'],
+  'gpt-4-turbo': ['gpt-4o-mini', 'llama-3.1-70b-versatile'],
+  'llama-3.1-70b-versatile': ['llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
+  'llama-3.1-8b-instant': ['mixtral-8x7b-32768', 'gpt-4o-mini'],
+  'mixtral-8x7b-32768': ['llama-3.1-8b-instant', 'gpt-4o-mini'],
+  'openai/gpt-4o-mini': ['anthropic/claude-3.5-sonnet', 'google/gemini-pro-1.5'],
+  'anthropic/claude-3.5-sonnet': ['google/gemini-pro-1.5', 'openai/gpt-4o-mini'],
+  'google/gemini-pro-1.5': ['anthropic/claude-3.5-sonnet', 'openai/gpt-4o-mini'],
+};
+
+export function getModelById(id: string): AIModel | undefined {
+  return MODELS.find((m) => m.id === id);
 }
 
-export const FALLBACK_CHAIN: AIModel[] = [
-  AI_MODELS.find((m) => m.id === 'llama-3.1-70b-versatile')!,
-  AI_MODELS.find((m) => m.id === 'mistralai/mistral-7b-instruct')!,
-  AI_MODELS.find((m) => m.id === 'gpt-4o-mini')!,
-]
+export function getProviderForModel(modelId: string): ModelProvider {
+  const model = getModelById(modelId);
+  return model?.provider ?? 'openai';
+}

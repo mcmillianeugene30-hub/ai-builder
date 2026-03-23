@@ -1,29 +1,15 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-import type { NextRequest } from 'next/server'
+import { createClient } from '@supabase/supabase-js';
 
-export async function createSupabaseServerClient(req?: NextRequest) {
-  const cookieStore = await cookies()
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          if (req) return req.cookies.getAll()
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // Server Component context
-          }
-        },
-      },
-    }
-  )
+export const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+export async function getUser(req: Request) {
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader) return null;
+
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user } } = await supabase.auth.getUser(token);
+  return user;
 }

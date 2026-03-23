@@ -1,64 +1,62 @@
-import { callGroq } from '@/lib/providers/groq'
-import { callOpenRouter } from '@/lib/providers/openrouter'
-import { callOpenAI } from '@/lib/providers/openai'
-import { FALLBACK_CHAIN, getModel } from '@/lib/models'
-import type { ModelCallParams, ModelCallResult } from '@/lib/types'
+import { callOpenAI } from './openai';
+import { callGroq } from './providers/groq';
+import { callOpenRouter } from './providers/openrouter';
+import { getProviderForModel, MODEL_FALLBACKS, getModelById } from './models';
+import type { AICompletionResponse } from './types';
 
-const SYSTEM_PROMPT = `You are an expert app architect. Return ONLY valid JSON. No markdown. No explanation. No code blocks. Raw JSON only.`
+export class ModelRouterError extends Error {
+  constructor(message: string, public readonly modelId: string, public readonly provider: string) {
+    super(message);
+    this.name = 'ModelRouterError';
+  }
+}
 
-export async function callModel(params: ModelCallParams): Promise<ModelCallResult> {
-  switch (params.provider) {
-    case 'groq':
-      return callGroq(params)
-    case 'openrouter':
-      return callOpenRouter(params)
+export async function callModel(
+  prompt: string,
+  modelId: string,
+  maxTokens: number = 1500,
+  temperature: number = 0
+): Promise<AICompletionResponse> {
+  const provider = getProviderForModel(modelId);
+
+  switch (provider) {
     case 'openai':
-      return callOpenAI(params)
+      return callOpenAI(prompt, modelId, maxTokens, temperature);
+    case 'groq':
+      return callGroq(prompt, modelId, maxTokens, temperature);
+    case 'openrouter':
+      return callOpenRouter(prompt, modelId, maxTokens, temperature);
     default:
-      throw new Error(`Unknown provider: ${params.provider}`)
+      throw new ModelRouterError(`Unknown provider: ${provider}`, modelId, provider);
   }
 }
 
 export async function callWithFallback(
-  preferredModelId: string,
-  prompt: string
-): Promise<ModelCallResult> {
-  const preferred = getModel(preferredModelId)
+  prompt: string,
+  modelId: string,
+  maxTokens: number = 1500,
+  temperature: number = 0
+): Promise<AICompletionResponse> {
+  const attemptedModels: string[] = [];
+  let lastError: Error | null = null;
 
-  // Build attempt list: preferred first, then fallback chain, deduplicated
-  const seenIds = new Set<string>()
-  const attemptList = []
+  const modelsToTry = [modelId, ...(MODEL_FALLBACKS[modelId] ?? [])];
 
-  if (preferred) {
-    attemptList.push(preferred)
-    seenIds.add(preferred.id)
-  }
+  for (const model of modelsToTry) {
+    if (attemptedModels.includes(model)) continue;
+    attemptedModels.push(model);
 
-  for (const model of FALLBACK_CHAIN) {
-    if (!seenIds.has(model.id)) {
-      attemptList.push(model)
-      seenIds.add(model.id)
-    }
-  }
-
-  let lastError = ''
-
-  for (const model of attemptList) {
     try {
-      return await callModel({
-        modelId: model.id,
-        provider: model.provider,
-        prompt,
-        systemPrompt: SYSTEM_PROMPT,
-        maxTokens: 1500,
-        temperature: 0,
-      })
+      return await callModel(prompt, model, maxTokens, temperature);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error(`Model ${model.id} failed:`, msg)
-      lastError = msg
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.error(`[ModelRouter] Model ${model} failed: ${lastError.message}`);
     }
   }
 
-  throw new Error(`All models failed. Last error: ${lastError}`)
+  throw new ModelRouterError(
+    `All models failed. Last error: ${lastError?.message}`,
+    modelId,
+    getProviderForModel(modelId)
+  );
 }

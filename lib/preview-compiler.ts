@@ -1,95 +1,44 @@
-import type { ProjectFile } from './types'
+import type { ProjectFile } from './types';
 
-export type CompileResult = {
-  html: string
-  hasErrors: boolean
-  errorMessage: string | null
+function sanitizeHTML(html: string): string {
+  // Basic sanitization - remove script tags and event handlers
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/\bon\w+\s*=/gi, 'data-removed=')
+    .replace(/javascript:/gi, '');
 }
 
-const EXTERNAL_SCRIPT_ALLOWLIST = [
-  'cdn.jsdelivr.net',
-  'cdnjs.cloudflare.com',
-  'unpkg.com',
-]
-
-function isAllowedExternalSrc(src: string): boolean {
-  try {
-    const url = new URL(src)
-    return EXTERNAL_SCRIPT_ALLOWLIST.includes(url.host)
-  } catch {
-    return false
+export function compileFiles(files: ProjectFile[]): string {
+  const indexFile = files.find((f) => f.path === 'index.html' || f.path === 'index.htm');
+  if (indexFile) {
+    return sanitizeHTML(indexFile.content);
   }
-}
 
-export function sanitizeHTML(html: string): string {
-  const doc = html
-  return doc
-    .replace(/<script\s+src="[^"]*"[^>]*>/gi, (match) => {
-      const srcMatch = match.match(/src="([^"]*)"/)
-      if (srcMatch && !isAllowedExternalSrc(srcMatch[1])) {
-        return ''
-      }
-      return match
-    })
-    .replace(/<link\s+rel="stylesheet"\s+href="[^"]*"[^>]*\/?>/gi, (match) => {
-      const hrefMatch = match.match(/href="([^"]*)"/)
-      if (hrefMatch && !isAllowedExternalSrc(hrefMatch[1])) {
-        return ''
-      }
-      return match
-    })
-}
-
-export function compileFiles(files: ProjectFile[]): CompileResult {
-  try {
-    if (!files || files.length === 0) {
-      return {
-        html: '<html><body><p>No files to preview.</p></body></html>',
-        hasErrors: false,
-        errorMessage: null,
-      }
-    }
-
-    let html = '<!DOCTYPE html><html><head></head><body></body></html>'
-
-    const indexFile = files.find(
-      (f) => f.path.includes('index.html') || f.name === 'index.html'
-    )
-    if (indexFile) {
-      html = indexFile.content
-    }
-
-    const cssFiles = files.filter((f) => f.language === 'css')
-    const jsFiles = files.filter((f) => f.language === 'javascript')
-
-    for (const css of cssFiles) {
-      const styleTag = `<style>\n${css.content}\n</style>`
-      html = html.replace('</head>', `${styleTag}</head>`)
-    }
-
-    for (const js of jsFiles) {
-      const scriptTag = `<script>
-try {
-${js.content}
-} catch(e) {
-  window.__previewError = e.message;
-  document.body.innerHTML += '<div id="preview-error">' + e.message + '</div>';
-}
-</script>`
-      html = html.replace('</body>', `${scriptTag}</body>`)
-    }
-
-    return {
-      html,
-      hasErrors: false,
-      errorMessage: null,
-    }
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    return {
-      html: '<html><body><p>Preview error.</p></body></html>',
-      hasErrors: true,
-      errorMessage: message,
-    }
+  const htmlFiles = files.filter((f) => f.path.endsWith('.html') || f.path.endsWith('.htm'));
+  if (htmlFiles.length > 0) {
+    return sanitizeHTML(htmlFiles[0].content);
   }
+
+  // Generate a simple preview from the first file
+  const firstFile = files[0];
+  if (!firstFile) return '<p>No files to preview</p>';
+
+  if (firstFile.path.endsWith('.tsx') || firstFile.path.endsWith('.jsx')) {
+    return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Preview</title></head>
+<body>
+  <div id="root"></div>
+  <p style="padding:20px;font-family:monospace;">React component: ${firstFile.path}</p>
+</body>
+</html>`;
+  }
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Preview</title></head>
+<body>
+  <pre>${firstFile.content}</pre>
+</body>
+</html>`;
 }

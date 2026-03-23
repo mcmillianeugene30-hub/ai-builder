@@ -1,28 +1,26 @@
-import { createSupabaseServerClient } from './supabase-server'
-import type { AppError } from './types'
+import { supabase } from './supabase-server';
+import type { ErrorSeverity } from './types';
 
-export async function logError(params: {
-  userId: string | null
-  error: AppError
-}): Promise<void> {
-  try {
-    const supabase = await createSupabaseServerClient()
+export async function logError(
+  module: string,
+  errorCode: string,
+  message: string,
+  severity: ErrorSeverity = 'medium',
+  userId: string | null = null,
+  stack?: string,
+  context?: Record<string, unknown>
+): Promise<void> {
+  const { error } = await supabase.from('error_logs').insert({
+    user_id: userId,
+    module,
+    error_code: errorCode,
+    message,
+    stack: stack ?? null,
+    context: context ?? null,
+    severity,
+  });
 
-    const stack =
-      params.error.stack && params.error.stack.length > 5000
-        ? params.error.stack.slice(0, 5000)
-        : params.error.stack ?? null
-
-    await supabase.from('error_logs').insert({
-      user_id: params.userId,
-      module: params.error.module,
-      error_code: params.error.code,
-      message: params.error.message,
-      stack,
-      context: params.error.context ?? null,
-      severity: params.error.severity,
-    })
-  } catch (err) {
-    console.error('Failed to log error:', err)
+  if (error) {
+    console.error('[error-logger] Failed to log error:', error.message);
   }
 }

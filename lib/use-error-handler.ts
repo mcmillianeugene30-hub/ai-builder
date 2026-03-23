@@ -1,22 +1,11 @@
-'use client'
+'use client';
 
-import { useErrorStore } from './error-store'
-import { useErrorReporter } from './use-error-reporter'
-import { classifyUnknownError } from './errors'
-import type { AppError } from './types'
+import { useCallback } from 'react';
+import { addError } from './error-store';
+import type { AppErrorCode } from './errors';
 
 export function useErrorHandler() {
-  const { addError } = useErrorStore()
-  const { reportError } = useErrorReporter()
-
-  function handleError(error: unknown, retryFn?: () => Promise<void>): void {
-    const appError = classifyUnknownError(error)
-    if (retryFn) {
-      appError.retryFn = retryFn
-    }
-    addError(appError)
-    reportError(appError)
-  }
-
-  return { handleError }
+  return useCallback((code: AppErrorCode, message: string) => {
+    addError(code, message);
+  }, []);
 }

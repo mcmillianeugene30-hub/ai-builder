@@ -1,27 +1,36 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getUser } from '@/lib/get-user'
-import { logError } from '@/lib/error-logger'
-import { createAppError } from '@/lib/errors'
-import type { ErrorModule, ErrorSeverity } from '@/lib/types'
+import { NextRequest, NextResponse } from 'next/server';
+import { getUser } from '@/lib/supabase-server';
+import { logError } from '@/lib/error-logger';
 
 export async function POST(req: NextRequest) {
+  const user = await getUser(req);
+
+  let body: unknown;
   try {
-    const body = await req.json()
-    const user = await getUser()
-
-    const appError = createAppError({
-      module: body.module as ErrorModule,
-      code: body.code,
-      message: body.message,
-      severity: body.severity as ErrorSeverity,
-      context: body.context,
-      error: body.stack ? new Error(body.message) : undefined,
-    })
-
-    await logError({ userId: user?.id ?? null, error: appError })
+    body = await req.json();
   } catch {
-    // logging must never block the UI
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  return NextResponse.json({ success: true })
+  const { message, stack, context } = body as {
+    message?: string;
+    stack?: string;
+    context?: Record<string, unknown>;
+  };
+
+  if (!message || typeof message !== 'string') {
+    return NextResponse.json({ error: 'message is required' }, { status: 400 });
+  }
+
+  await logError(
+    'client',
+    'CLIENT_ERROR',
+    message,
+    'medium',
+    user?.id ?? null,
+    stack ?? undefined,
+    context ?? undefined
+  );
+
+  return NextResponse.json({ data: { logged: true } });
 }
