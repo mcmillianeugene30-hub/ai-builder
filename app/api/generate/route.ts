@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUser } from '@/lib/get-user'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { generateApp } from '@/lib/generate'
-import { getPlanConfig } from '@/lib/pricing'
-import { reportMeteredUsage } from '@/lib/stripe-helpers'
+import { recordCharge, isAdmin } from '@/lib/billing'
 
 async function checkSubscriptionAccess(userId: string): Promise<{ allowed: boolean; error?: string; requiresUpgrade?: boolean }> {
   const supabase = await createSupabaseServerClient()
@@ -48,30 +47,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { prompt } = await req.json()
+    const { prompt, modelId } = await req.json()
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 })
     }
 
-    const result = await generateApp(prompt)
-
-    if (result.error) {
-      return NextResponse.json({ error: result.error }, { status: 500 })
-    }
-
-    const generated = result.data!
+    const result = await generateApp(user.id, prompt, modelId)
 
     const supabase = await createSupabaseServerClient()
-    const { data: sub } = await supabase
-      .from('subscriptions')
-      .select('stripe_customer_id')
-      .eq('user_id', user.id)
-      .single()
-
-    if (sub?.stripe_customer_id) {
-      const tokensUsed = Math.floor(prompt.length * 1.5)
-      await reportMeteredUsage(sub.stripe_customer_id, tokensUsed).catch(() => {})
-    }
 
     const projectName =
       prompt
@@ -87,7 +70,7 @@ export async function POST(req: NextRequest) {
         name: 'README.md',
         path: 'README.md',
         language: 'markdown',
-        content: `# ${projectName}\n\nGenerated from prompt: "${prompt}"\n\n## Frontend\n\n- Framework: ${generated.frontend.framework}\n- Components: ${generated.frontend.components.join(', ')}\n- Pages: ${generated.frontend.pages.join(', ')}\n\n## Backend\n\n${generated.backend.routes.map((r) => `- ${r.method} ${r.path} — ${r.description}`).join('\n')}\n\n## Database\n\n${generated.database.tables.map((t) => `### ${t.name}\n\n${t.columns.map((c) => `- ${c.name}: ${c.type}`).join('\n')}`).join('\n\n')}`,
+        content: `# ${projectName}\n\nGenerated from prompt: "${prompt}"\n\n## Frontend\n\n- Framework: ${result.frontend.framework}\n- Components: ${result.frontend.components.join(', ')}\n- Pages: ${result.frontend.pages.join(', ')}\n\n## Backend\n\n${result.backend.routes.map((r) => `- ${r.method} ${r.path} — ${r.description}`).join('\n')}\n\n## Database\n\n${result.database.tables.map((t) => `### ${t.name}\n\n${t.columns.map((c) => `- ${c.name}: ${c.type}`).join('\n')}`).join('\n\n')}`,
       },
     ]
 
@@ -101,7 +84,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to save generated project' }, { status: 500 })
     }
 
-    return NextResponse.json({ data: { projectId: project.id } })
+    const costCents = result.costCents
+
+    if (!isAdmin(user.email ?? '')) {
+      await recordCharge({
+        userId: user.id,
+        type: 'purchase',
+        amount: costCents,
+        credits: null,
+        description: `AI generation — ${result.modelUsed}`,
+      })
+    }
+
+    return NextResponse.json({
+      data: { projectId: project.id },
+      meta: {
+        modelUsed: result.modelUsed,
+        chargedCents: isAdmin(user.email ?? '') ? 0 : costCents,
+      },
+    })
   } catch (err) {
     console.error(err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

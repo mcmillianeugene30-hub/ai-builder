@@ -2,9 +2,10 @@
 
 type GenerationLoadingProps = {
   prompt: string
+  modelName?: string
 }
 
-export function GenerationLoading({ prompt }: GenerationLoadingProps) {
+export function GenerationLoading({ prompt, modelName }: GenerationLoadingProps) {
   return (
     <div style={{
       position: 'fixed',
@@ -41,6 +42,11 @@ export function GenerationLoading({ prompt }: GenerationLoadingProps) {
         <h2 style={{ color: '#f0f6fc', fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.75rem' }}>
           Generating your app…
         </h2>
+        {modelName && (
+          <p style={{ color: '#79c0ff', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+            Using {modelName}
+          </p>
+        )}
         <p style={{ color: '#8b949e', fontSize: '0.9rem', marginBottom: '1rem' }}>
           AI is crafting a production-ready scaffold based on your prompt
         </p>

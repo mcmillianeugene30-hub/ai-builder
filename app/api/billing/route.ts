@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getUser } from '@/lib/get-user'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getPlanConfig } from '@/lib/pricing'
+import { AI_MODELS } from '@/lib/models'
 
 export async function GET() {
   const user = await getUser()
@@ -31,6 +32,7 @@ export async function GET() {
       subscription: sub,
       transactions: transactions ?? [],
       planConfig,
+      availableModels: AI_MODELS,
     },
   })
 }

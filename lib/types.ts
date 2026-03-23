@@ -31,6 +31,33 @@ export type UpdateProjectInput = {
 
 // ─── AI Generation ─────────────────────────────────────────────────────────────
 
+export type AIProviderType = "groq" | "openrouter" | "openai"
+
+export type AIModel = {
+  id: string
+  displayName: string
+  provider: AIProviderType
+  costCents: number
+  isDefault: boolean
+  description: string
+}
+
+export type ModelCallParams = {
+  modelId: string
+  provider: AIProviderType
+  prompt: string
+  systemPrompt: string
+  maxTokens: number
+  temperature: number
+}
+
+export type ModelCallResult = {
+  content: string
+  modelId: string
+  provider: AIProviderType
+  latencyMs: number
+}
+
 export type GeneratedApp = {
   frontend: {
     framework: string

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import type { AIModel } from '@/lib/types'
 import { GenerationLoading } from './GenerationLoading'
 
 type GenerateModalProps = {
@@ -15,12 +16,41 @@ const EXAMPLE_PROMPTS = [
   'An inventory tracker with suppliers and stock alerts',
 ]
 
+const PROVIDER_LABELS: Record<string, string> = {
+  groq: 'Groq',
+  openrouter: 'OpenRouter',
+  openai: 'OpenAI',
+}
+
 export function GenerateModal({ onClose }: GenerateModalProps) {
   const router = useRouter()
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [generated, setGenerated] = useState<{ projectId: string } | null>(null)
+  const [generated, setGenerated] = useState<{ projectId: string; modelUsed?: string } | null>(null)
+  const [models, setModels] = useState<AIModel[]>([])
+  const [defaultModelId, setDefaultModelId] = useState('')
+  const [selectedModelId, setSelectedModelId] = useState('')
+
+  useEffect(() => {
+    fetch('/api/models')
+      .then((r) => r.json())
+      .then((data) => {
+        setModels(data.data.models)
+        setDefaultModelId(data.data.defaultModelId)
+        setSelectedModelId(data.data.defaultModelId)
+      })
+      .catch(() => {})
+  }, [])
+
+  const selectedModel = models.find((m) => m.id === selectedModelId)
+  const isGpt4o = selectedModelId === 'gpt-4o'
+
+  const grouped = models.reduce<Record<string, AIModel[]>>((acc, model) => {
+    if (!acc[model.provider]) acc[model.provider] = []
+    acc[model.provider].push(model)
+    return acc
+  }, {})
 
   async function handleGenerate() {
     if (!prompt.trim()) return
@@ -31,7 +61,7 @@ export function GenerateModal({ onClose }: GenerateModalProps) {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, modelId: selectedModelId }),
       })
 
       const json = await res.json()
@@ -40,7 +70,10 @@ export function GenerateModal({ onClose }: GenerateModalProps) {
         throw new Error(json.error || 'Generation failed')
       }
 
-      setGenerated({ projectId: json.data.projectId })
+      setGenerated({
+        projectId: json.data.projectId,
+        modelUsed: json.meta?.modelUsed,
+      })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
       setError(message)
@@ -49,7 +82,7 @@ export function GenerateModal({ onClose }: GenerateModalProps) {
   }
 
   if (loading && !generated) {
-    return <GenerationLoading prompt={prompt} />
+    return <GenerationLoading prompt={prompt} modelName={selectedModel?.displayName} />
   }
 
   if (generated) {
@@ -78,7 +111,7 @@ export function GenerateModal({ onClose }: GenerateModalProps) {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Describe the app you want to build…"
-          rows={5}
+          rows={4}
           style={{
             width: '100%', background: '#161b22', border: '1px solid #30363d',
             borderRadius: 8, padding: '0.75rem', color: '#c9d1d9',
@@ -101,6 +134,51 @@ export function GenerateModal({ onClose }: GenerateModalProps) {
           </div>
         </div>
 
+        {/* Model selector */}
+        <div style={{ marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <label style={{ fontSize: '0.8rem', color: '#8b949e', fontWeight: 500 }}>Model</label>
+            <select
+              value={selectedModelId}
+              onChange={(e) => setSelectedModelId(e.target.value)}
+              style={{
+                flex: 1,
+                background: '#161b22',
+                border: '1px solid #30363d',
+                borderRadius: 6,
+                color: '#c9d1d9',
+                padding: '6px 10px',
+                fontSize: '0.85rem',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {Object.entries(grouped).map(([provider, providerModels]) => (
+                <optgroup key={provider} label={PROVIDER_LABELS[provider] ?? provider}>
+                  {providerModels.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.displayName} (${(model.costCents / 100).toFixed(2)})
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          {isGpt4o && (
+            <div style={{
+              fontSize: '0.75rem',
+              color: '#f0b429',
+              background: '#f0b42918',
+              border: '1px solid #f0b42944',
+              borderRadius: 4,
+              padding: '4px 8px',
+            }}>
+              ⚠️ GPT-4o costs $0.30/gen (vs $0.15 for other models)
+            </div>
+          )}
+        </div>
+
         {error && (
           <div style={{
             background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444',
@@ -120,7 +198,9 @@ export function GenerateModal({ onClose }: GenerateModalProps) {
             background: prompt.trim() ? '#6366f1' : '#30363d',
             border: 'none', borderRadius: 6, color: '#fff',
             cursor: prompt.trim() ? 'pointer' : 'not-allowed', fontSize: '0.9rem', fontWeight: 500,
-          }}>Generate App →</button>
+          }}>
+            Generate{selectedModel ? ` with ${selectedModel.displayName}` : ''} →
+          </button>
         </div>
       </div>
     </div>
