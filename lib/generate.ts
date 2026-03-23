@@ -37,23 +37,23 @@ export function validateSchema(raw: string): GeneratedApp | null {
 type LogParams = {
   userId: string
   prompt: string
-  response: GeneratedApp | null
-  status: 'success' | 'failed' | 'retry'
+  success: boolean
   modelId: string
   provider: string
   latencyMs: number
+  attempt: number
 }
 
 async function logGeneration(params: LogParams): Promise<void> {
   try {
     const supabase = await createSupabaseServerClient()
     await supabase.from('ai_logs').insert({
-      user_id: params.userId,
-      prompt: params.prompt,
-      response: params.response as object | null,
-      status: params.status,
-      model_id: params.modelId,
-      provider: params.provider,
+      user_id:    params.userId,
+      prompt:     params.prompt,
+      model_id:   params.modelId,
+      provider:   params.provider,
+      success:    params.success,
+      attempt:    params.attempt,
       latency_ms: params.latencyMs,
     })
   } catch (err) {
@@ -68,7 +68,7 @@ export async function generateApp(
 ): Promise<GeneratedApp & { modelUsed: string; costCents: number }> {
   const model = modelId ? getModel(modelId) ?? DEFAULT_MODEL : DEFAULT_MODEL
 
-  for (let i = 0; i < 3; i++) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const result = await callWithFallback(model.id, prompt)
       const parsed = validateSchema(result.content)
@@ -77,11 +77,11 @@ export async function generateApp(
         await logGeneration({
           userId,
           prompt,
-          response: parsed,
-          status: 'success',
-          modelId: result.modelId,
-          provider: result.provider,
+          success:   true,
+          modelId:   result.modelId,
+          provider:  result.provider,
           latencyMs: result.latencyMs,
+          attempt,
         })
 
         return {
@@ -94,14 +94,24 @@ export async function generateApp(
       await logGeneration({
         userId,
         prompt,
-        response: null,
-        status: 'retry',
-        modelId: result.modelId,
-        provider: result.provider,
+        success:   false,
+        modelId:   result.modelId,
+        provider:  result.provider,
         latencyMs: result.latencyMs,
+        attempt,
       })
     } catch (err) {
-      console.error(`Generation attempt ${i + 1} failed:`, err)
+      console.error(`Generation attempt ${attempt} failed:`, err)
+
+      await logGeneration({
+        userId,
+        prompt,
+        success:   false,
+        modelId:   model.id,
+        provider:  model.provider,
+        latencyMs: 0,
+        attempt,
+      })
     }
   }
 
