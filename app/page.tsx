@@ -3,34 +3,37 @@
 import { useState } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { generateApp } from "@/lib/api";
-import { type GeneratedApp } from "@/lib/types";
+import type { GeneratedApp } from "@/lib/types";
 
 function AppDisplay({ data }: { data: GeneratedApp }) {
+  const frontendFiles = Object.keys(data.frontend.files);
+  const backendFiles = Object.keys(data.backend.files);
+  const frontendFeatures = frontendFiles.slice(0, 3);
+  const backendFeatures = backendFiles.slice(0, 3);
+
   return (
     <div className="space-y-6">
       <div className="bg-slate-700 rounded-lg p-4">
         <h3 className="text-lg font-semibold text-cyan-400 mb-2">Frontend</h3>
         <p><span className="text-slate-400">Framework:</span> {data.frontend.framework}</p>
-        <p><span className="text-slate-400">Language:</span> {data.frontend.language}</p>
-        <p><span className="text-slate-400">Styling:</span> {data.frontend.styling}</p>
-        <p><span className="text-slate-400">Components:</span> {data.frontend.components.join(", ")}</p>
-        <p><span className="text-slate-400">Features:</span> {data.frontend.features.join(", ")}</p>
+        <p><span className="text-slate-400">Files ({frontendFiles.length}):</span> {frontendFiles.slice(0, 5).join(", ")}{frontendFiles.length > 5 ? "…" : ""}</p>
+        <p><span className="text-slate-400">Features:</span> {frontendFeatures.join(", ")}</p>
       </div>
 
       <div className="bg-slate-700 rounded-lg p-4">
         <h3 className="text-lg font-semibold text-green-400 mb-2">Backend</h3>
         <p><span className="text-slate-400">Framework:</span> {data.backend.framework}</p>
-        <p><span className="text-slate-400">Language:</span> {data.backend.language}</p>
-        <p><span className="text-slate-400">API Routes:</span> {data.backend.apiRoutes.join(", ")}</p>
-        <p><span className="text-slate-400">Features:</span> {data.backend.features.join(", ")}</p>
+        <p><span className="text-slate-400">Files ({backendFiles.length}):</span> {backendFiles.slice(0, 5).join(", ")}{backendFiles.length > 5 ? "…" : ""}</p>
+        <p><span className="text-slate-400">Features:</span> {backendFeatures.join(", ")}</p>
       </div>
 
-      <div className="bg-slate-700 rounded-lg p-4">
-        <h3 className="text-lg font-semibold text-amber-400 mb-2">Database</h3>
-        <p><span className="text-slate-400">ORM:</span> {data.database.orm}</p>
-        <p><span className="text-slate-400">Entities:</span> {data.database.entities.join(", ")}</p>
-        <p><span className="text-slate-400">Relations:</span> {data.database.relations.join(", ")}</p>
-      </div>
+      {data.database && (
+        <div className="bg-slate-700 rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-amber-400 mb-2">Database</h3>
+          <p><span className="text-slate-400">Schema:</span> {data.database.schema ?? "None"}</p>
+          <p><span className="text-slate-400">Migrations ({data.database.migrations?.length ?? 0}):</span> {(data.database.migrations ?? []).slice(0, 3).join(", ")}</p>
+        </div>
+      )}
     </div>
   );
 }

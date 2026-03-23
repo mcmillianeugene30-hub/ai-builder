@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import { supabase } from './supabase-server';
 import type { Project, ProjectFile, GeneratedApp } from './types';
 
@@ -94,25 +93,22 @@ export function seedProjectFromAI(
 ): { name: string; description: string; files: ProjectFile[] } {
   const files: ProjectFile[] = [];
 
-  // Generate frontend files from components
-  app.frontend.components.forEach((component) => {
-    files.push({
-      path: `frontend/src/components/${component}.tsx`,
-      content: `// Component: ${component}\nexport function ${component}() {\n  return <div>${component}</div>;\n}`,
-    });
-  });
+  // Generate project files from frontend files map
+  for (const [path, content] of Object.entries(app.frontend.files)) {
+    files.push({ path: `frontend/${path}`, content });
+  }
 
-  // Generate backend files from apiRoutes
-  (app.backend.apiRoutes ?? []).forEach((route) => {
-    files.push({
-      path: `backend/src/routes/${route}`,
-      content: `// API Route: ${route}\nexport default function handler(req, res) {\n  res.status(200).json({ message: 'OK' });\n}`,
-    });
-  });
+  // Generate backend files from backend files map
+  for (const [path, content] of Object.entries(app.backend.files)) {
+    files.push({ path: `backend/${path}`, content });
+  }
+
+  const frontendFileCount = Object.keys(app.frontend.files).length;
+  const backendFileCount = Object.keys(app.backend.files).length;
 
   return {
     name: 'AI Generated App',
-    description: `Generated with ${app.frontend.framework} frontend and ${app.backend.framework} backend`,
+    description: `Generated with ${app.frontend.framework} frontend (${frontendFileCount} files) and ${app.backend.framework} backend (${backendFileCount} files)`,
     files,
   };
 }

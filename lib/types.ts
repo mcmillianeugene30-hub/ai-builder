@@ -1,28 +1,44 @@
-export interface FrontendConfig {
-  framework: string;
-  language: string;
-  styling: string;
-  components: string[];
-  features: string[];
-}
-
-export interface BackendConfig {
-  framework: string;
-  language: string;
-  apiRoutes: string[];
-  features: string[];
-}
-
-export interface DatabaseConfig {
-  orm: string;
-  entities: string[];
-  relations: string[];
-}
-
+// New AI-generated app scaffold format
 export interface GeneratedApp {
-  frontend: FrontendConfig;
-  backend: BackendConfig;
-  database: DatabaseConfig;
+  frontend: {
+    framework: string;
+    files: Record<string, string>;
+  };
+  backend: {
+    framework: string;
+    files: Record<string, string>;
+  };
+  database?: {
+    schema?: string;
+    migrations?: string[];
+  };
+}
+
+export interface GenerationResult {
+  data?: GeneratedApp;
+  error?: string;
+}
+
+// Legacy app scaffold format (used by existing page.tsx and projects.ts)
+export interface LegacyGeneratedApp {
+  frontend: {
+    framework: string;
+    language: string;
+    styling: string;
+    components: string[];
+    features: string[];
+  };
+  backend: {
+    framework: string;
+    language: string;
+    apiRoutes: string[];
+    features: string[];
+  };
+  database: {
+    orm: string;
+    entities: string[];
+    relations: string[];
+  };
 }
 
 export interface AILogEntry {
