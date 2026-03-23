@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getUser } from '@/lib/get-user'
-import {
-  getSubscription,
-  listTransactions,
-  isAdmin,
-} from '@/lib/billing'
-import { PLAN_FEATURES } from '@/lib/pricing'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { getPlanConfig } from '@/lib/pricing'
 
 export async function GET() {
   const user = await getUser()
@@ -13,23 +9,28 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const [subscription, transactions] = await Promise.all([
-    getSubscription(user.id),
-    listTransactions(user.id, 20),
-  ])
+  const supabase = await createSupabaseServerClient()
 
-  const isAdminUser = isAdmin(user.email ?? '')
+  const { data: sub } = await supabase
+    .from('subscriptions')
+    .select('*')
+    .eq('user_id', user.id)
+    .single()
 
-  const features = subscription
-    ? PLAN_FEATURES[subscription.plan]
-    : null
+  const { data: transactions } = await supabase
+    .from('billing_transactions')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  const planConfig = sub ? getPlanConfig(sub.plan as 'starter' | 'pro' | 'premium' | 'enterprise') : null
 
   return NextResponse.json({
     data: {
-      subscription,
-      transactions,
-      isAdmin: isAdminUser,
-      features,
+      subscription: sub,
+      transactions: transactions ?? [],
+      planConfig,
     },
   })
 }

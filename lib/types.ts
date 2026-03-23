@@ -1,3 +1,5 @@
+// ─── Project & Editor ──────────────────────────────────────────────────────────
+
 export type ProjectFile = {
   name: string
   path: string
@@ -27,6 +29,31 @@ export type UpdateProjectInput = {
   files?: ProjectFile[]
 }
 
+// ─── AI Generation ─────────────────────────────────────────────────────────────
+
+export type GeneratedApp = {
+  frontend: {
+    framework: string
+    components: string[]
+    pages: string[]
+  }
+  backend: {
+    routes: {
+      method: string
+      path: string
+      description: string
+    }[]
+  }
+  database: {
+    tables: {
+      name: string
+      columns: { name: string; type: string; nullable: boolean }[]
+    }[]
+  }
+}
+
+// ─── Storage ──────────────────────────────────────────────────────────────────
+
 export type StoredAsset = {
   name: string
   path: string
@@ -41,6 +68,8 @@ export type UploadAssetInput = {
   projectId: string
   file: File
 }
+
+// ─── Realtime / Collaboration ─────────────────────────────────────────────────
 
 export type Collaborator = {
   userId: string
@@ -61,6 +90,8 @@ export type RealtimePayload = {
   old: Project | null
 }
 
+// ─── Deployment ────────────────────────────────────────────────────────────────
+
 export type Deployment = {
   id: string
   project_id: string
@@ -78,11 +109,13 @@ export type DeploymentResult = {
   liveUrl: string | null
 }
 
+// ─── Error Handling ───────────────────────────────────────────────────────────
+
 export type ErrorSeverity = 'low' | 'medium' | 'high' | 'fatal'
 
 export type ErrorModule =
   | 'AI_ENGINE' | 'AUTH' | 'PROJECTS' | 'EDITOR'
-  | 'PREVIEW' | 'STORAGE' | 'REALTIME' | 'DEPLOY' | 'SYSTEM'
+  | 'PREVIEW' | 'STORAGE' | 'REALTIME' | 'DEPLOY' | 'SYSTEM' | 'BILLING'
 
 export type AppError = {
   id: string
@@ -105,52 +138,9 @@ export type ToastItem = {
   dismissedAt?: Date
 }
 
-// ─── Billing types ────────────────────────────────────────────────────────────
+// ─── Billing ─────────────────────────────────────────────────────────────────
 
 export type PlanName = 'starter' | 'pro' | 'premium' | 'enterprise'
-export type BillingCycle = 'monthly' | 'annual'
-export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'trialing'
-
-export type Subscription = {
-  id: string
-  user_id: string
-  plan: PlanName
-  billing_cycle: BillingCycle
-  stripe_customer_id: string | null
-  stripe_subscription_id: string | null
-  current_period_start: string | null
-  current_period_end: string | null
-  status: SubscriptionStatus
-  created_at: string
-  updated_at: string
-}
-
-export type BillingTransactionType =
-  | 'subscription_payment'
-  | 'ai_generation'
-  | 'mobile_build'
-  | 'custom_domain'
-  | 'refund'
-  | 'admin_grant'
-
-export type BillingTransaction = {
-  id: string
-  user_id: string
-  type: BillingTransactionType
-  amount_cents: number
-  description: string
-  stripe_payment_intent_id: string | null
-  reference_id: string | null
-  created_at: string
-}
-
-export type AccessCheckResult = {
-  allowed: boolean
-  isAdmin: boolean
-  plan: PlanName | null
-  amountCents: number
-  reason: string | null
-}
 
 export type PlanFeatures = {
   maxProjects: number
@@ -158,4 +148,28 @@ export type PlanFeatures = {
   maxDomains: number
   mobileBuilds: boolean
   prioritySupport: boolean
+}
+
+export type Subscription = {
+  id: string
+  user_id: string
+  plan: PlanName
+  billing_cycle: 'monthly' | 'annual'
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  current_period_start: string | null
+  current_period_end: string | null
+  status: 'active' | 'canceled' | 'past_due' | 'trialing'
+  created_at: string
+  updated_at: string
+}
+
+export type BillingTransaction = {
+  id: string
+  user_id: string
+  type: 'purchase' | 'credit' | 'refund'
+  description: string
+  credits: number | null
+  amount: number | null
+  created_at: string
 }
