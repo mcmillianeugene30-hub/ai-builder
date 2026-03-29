@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { supabase } from './supabase-server';
+import { getSupabaseClient } from './supabase-server';
 
 const BUCKET = 'project-assets';
 
@@ -9,6 +9,7 @@ export async function uploadAsset(
   fileContent: Buffer,
   contentType: string
 ): Promise<{ url?: string; error?: string }> {
+  const supabase = getSupabaseClient();
   const path = `${userId}/${filename}`;
 
   const { error } = await supabase.storage
@@ -25,6 +26,7 @@ export async function uploadAsset(
 }
 
 export async function deleteAsset(userId: string, filename: string): Promise<boolean> {
+  const supabase = getSupabaseClient();
   const path = `${userId}/${filename}`;
   const { error } = await supabase.storage.from(BUCKET).remove([path]);
   if (error) {
@@ -35,6 +37,7 @@ export async function deleteAsset(userId: string, filename: string): Promise<boo
 }
 
 export async function listAssets(userId: string): Promise<string[]> {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase.storage.from(BUCKET).list(userId, {
     limit: 100,
     sortBy: { column: 'created_at', order: 'desc' },

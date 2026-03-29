@@ -1,4 +1,4 @@
-import { supabase } from './supabase-server';
+import { getSupabaseClient } from './supabase-server';
 import type { ErrorSeverity } from './types';
 
 export async function logError(
@@ -10,6 +10,7 @@ export async function logError(
   stack?: string,
   context?: Record<string, unknown>
 ): Promise<void> {
+  const supabase = getSupabaseClient();
   const { error } = await supabase.from('error_logs').insert({
     user_id: userId,
     module,

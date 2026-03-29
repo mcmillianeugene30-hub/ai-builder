@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUser, supabase } from '@/lib/supabase-server';
+import { getUser, getSupabaseClient } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
   const user = await getUser(req);
@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
   }
 
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('deployments')
     .select('id, vercel_id, status, url, error_message, created_at, updated_at')

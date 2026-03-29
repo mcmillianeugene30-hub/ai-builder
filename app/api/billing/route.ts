@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUser } from '@/lib/supabase-server';
+import { getUser, getSupabaseClient } from '@/lib/supabase-server';
 import { getSubscription } from '@/lib/billing';
-import { supabase } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
   const user = await getUser(req);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const subscription = await getSubscription(user.id);
+  const supabase = getSupabaseClient();
   const { data: transactions } = await supabase
     .from('billing_transactions')
     .select('*')

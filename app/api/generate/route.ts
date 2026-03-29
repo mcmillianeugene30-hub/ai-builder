@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callOpenAI, validateSchema } from '@/lib/openai';
-import { supabase } from '@/lib/supabase-server';
+import { getSupabaseClient } from '@/lib/supabase-server';
 import type { GeneratedApp, AILogEntry } from '@/lib/types';
 import { captureError, captureMessage } from '@/lib/monitoring';
 
@@ -14,6 +14,7 @@ async function logAttempt(
   rawResponse: string | null,
   errorMessage: string | null
 ): Promise<void> {
+  const supabase = getSupabaseClient();
   const entry: AILogEntry = {
     prompt,
     model: MODEL,

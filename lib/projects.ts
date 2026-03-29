@@ -1,4 +1,4 @@
-import { supabase } from './supabase-server';
+import { getSupabaseClient } from './supabase-server';
 import type { Project, ProjectFile, GeneratedApp } from './types';
 
 export async function createProject(
@@ -6,6 +6,7 @@ export async function createProject(
   name: string,
   description: string | null = null
 ): Promise<Project | null> {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('projects')
     .insert({ user_id: userId, name, description })
@@ -21,6 +22,7 @@ export async function createProject(
 }
 
 export async function getProject(projectId: string, userId: string): Promise<Project | null> {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('projects')
     .select('*')
@@ -41,6 +43,7 @@ export async function updateProject(
   userId: string,
   updates: Partial<Pick<Project, 'name' | 'description' | 'files'>>
 ): Promise<Project | null> {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('projects')
     .update(updates)
@@ -58,6 +61,7 @@ export async function updateProject(
 }
 
 export async function deleteProject(projectId: string, userId: string): Promise<boolean> {
+  const supabase = getSupabaseClient();
   const { error } = await supabase
     .from('projects')
     .delete()
@@ -73,6 +77,7 @@ export async function deleteProject(projectId: string, userId: string): Promise<
 }
 
 export async function listProjects(userId: string): Promise<Project[]> {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('projects')
     .select('*')

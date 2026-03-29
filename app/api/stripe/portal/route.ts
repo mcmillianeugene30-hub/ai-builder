@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUser } from '@/lib/supabase-server';
+import { getUser, getSupabaseClient } from '@/lib/supabase-server';
 import { createBillingPortalSession } from '@/lib/stripe';
-import { supabase } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   const user = await getUser(req);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const supabase = getSupabaseClient();
   const { data: subscription } = await supabase
     .from('subscriptions')
     .select('stripe_customer_id')

@@ -1,5 +1,5 @@
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { supabase } from './supabase-browser';
+import { getSupabaseClient } from './supabase-browser';
 
 export interface PresenceState {
   userId: string;
@@ -16,6 +16,7 @@ export function createProjectChannel(
   userName: string,
   color: string
 ): RealtimeChannel {
+  const supabase = getSupabaseClient();
   const channel = supabase.channel(`project:${projectId}`, {
     config: {
       presence: { key: userId },
