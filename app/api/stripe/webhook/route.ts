@@ -55,7 +55,8 @@ export async function POST(req: NextRequest) {
         const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id ?? '';
         const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id ?? '';
         if (subscriptionId) {
-          const { supabase } = await import('@/lib/supabase-server');
+          const { getSupabaseClient } = await import('@/lib/supabase-server');
+          const supabase = getSupabaseClient();
           await supabase
             .from('subscriptions')
             .update({ status: 'past_due' })

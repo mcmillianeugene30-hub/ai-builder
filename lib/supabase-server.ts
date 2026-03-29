@@ -28,3 +28,5 @@ export async function getUser(req: Request) {
   const { data: { user } } = await getSupabaseClient().auth.getUser(token);
   return user;
 }
+
+export const supabase = getSupabaseClient();

@@ -48,5 +48,5 @@ export async function listAssets(userId: string): Promise<string[]> {
     return [];
   }
 
-  return (data ?? []).map((f) => f.name);
+  return (data ?? []).map((f: any) => f.name);
 }
