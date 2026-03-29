@@ -89,7 +89,13 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Deploy
 
+This repository is configured to deploy only one Vercel project by default (`ai-builder`).
+If this repo is connected to multiple Vercel projects, non-primary projects are automatically skipped during the ignored build step.
+
 ```bash
+# optional: change the allowed Vercel project name
+export PRIMARY_VERCEL_PROJECT=ai-builder
+
 npm run build
 vercel --prod
 ```
