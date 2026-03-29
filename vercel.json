@@ -1,0 +1,3 @@
+{
+  "ignoreCommand": "if [ -z \"$VERCEL_PROJECT_NAME\" ]; then exit 1; fi; TARGET=\"${PRIMARY_VERCEL_PROJECT:-ai-builder}\"; if [ \"$VERCEL_PROJECT_NAME\" = \"$TARGET\" ]; then echo Deploying $VERCEL_PROJECT_NAME; exit 1; else echo Skipping deploy for $VERCEL_PROJECT_NAME, primary is $TARGET; exit 0; fi"
+}
