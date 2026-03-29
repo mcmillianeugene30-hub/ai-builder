@@ -94,3 +94,29 @@ export interface AICompletionResponse {
     total_tokens: number;
   };
 }
+
+
+export interface GenerationMeta {
+  model: string;
+  provider: string;
+  attempt: number;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  } | null;
+}
+
+export interface ModelOption {
+  id: string;
+  name: string;
+  provider: string;
+  contextWindow: number;
+}
+
+export interface PromptTemplateOption {
+  id: string;
+  name: string;
+  category: string;
+  prompt: string;
+}
