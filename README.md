@@ -51,12 +51,14 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Current Features
 
-- Prompt-driven scaffold generation through `/api/generate`
+- Prompt-driven scaffold generation through `/api/generate` with model selection and provider fallback
 - Project CRUD endpoints backed by Supabase
 - Asset upload/list/delete endpoints using Supabase Storage
 - Auth endpoints for register/login/signout
 - Stripe checkout + billing portal + webhook handlers
 - Deploy trigger + status polling endpoints for Vercel
+- Built-in per-IP rate limiting on generation endpoint
+- Prompt template catalog endpoint for faster project starts
 - Client/server error logging endpoint
 
 ---
@@ -73,7 +75,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `GET` | `/api/projects/[id]` | Required | Get single project |
 | `PATCH` | `/api/projects/[id]` | Required | Update project |
 | `DELETE` | `/api/projects/[id]` | Required | Delete project |
-| `POST` | `/api/generate` | Required | Generate app scaffold |
+| `POST` | `/api/generate` | Required | Generate app scaffold (supports `modelId`, `maxTokens`, `temperature`) |
 | `POST` | `/api/deploy` | Required | Trigger Vercel deploy |
 | `GET` | `/api/deploy/status` | Required | Check deploy status |
 | `GET` | `/api/storage` | Required | List uploaded assets |
@@ -81,6 +83,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `DELETE` | `/api/storage/[filename]` | Required | Delete asset |
 | `POST` | `/api/errors` | Optional | Log client error |
 | `GET` | `/api/models` | None | List available AI models |
+| `GET` | `/api/templates` | None | List starter prompt templates by category |
 
 ---
 
