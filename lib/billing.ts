@@ -1,4 +1,4 @@
-import { supabase } from './supabase-server';
+import { getSupabaseClient } from './supabase-server';
 import { PLAN_FEATURES, type PlanName } from './pricing';
 import type { Subscription } from './types';
 
@@ -6,6 +6,7 @@ export async function checkAccess(
   userId: string,
   action: 'generate' | 'deploy' | 'storage'
 ): Promise<{ allowed: boolean; error?: string }> {
+  const supabase = getSupabaseClient();
   const { data: subscription, error } = await supabase
     .from('subscriptions')
     .select('*')
@@ -62,6 +63,7 @@ export async function recordCharge(
   amountCents: number,
   description: string
 ): Promise<void> {
+  const supabase = getSupabaseClient();
   await supabase.from('billing_transactions').insert({
     user_id: userId,
     type,
@@ -71,6 +73,7 @@ export async function recordCharge(
 }
 
 export async function getSubscription(userId: string): Promise<Subscription | null> {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('subscriptions')
     .select('*')

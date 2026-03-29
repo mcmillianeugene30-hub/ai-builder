@@ -1,5 +1,5 @@
 import { getStripe } from './stripe';
-import { supabase } from './supabase-server';
+import { getSupabaseClient } from './supabase-server';
 import { PLAN_FEATURES, type PlanName } from './pricing';
 
 export async function handleSubscriptionActivated(
@@ -22,6 +22,7 @@ export async function handleSubscriptionActivated(
 
   const billingCycle = sub.items.data[0]?.price.recurring?.interval === 'year' ? 'annual' : 'monthly';
 
+  const supabase = getSupabaseClient();
   const { error } = await supabase.from('subscriptions').upsert({
     user_id: userId,
     plan,
@@ -49,6 +50,7 @@ export async function handleSubscriptionActivated(
 }
 
 export async function handleSubscriptionCanceled(subscriptionId: string): Promise<void> {
+  const supabase = getSupabaseClient();
   await supabase
     .from('subscriptions')
     .update({ status: 'canceled' })
@@ -61,6 +63,7 @@ export async function handlePaymentSucceeded(
   description: string,
   paymentIntentId: string
 ): Promise<void> {
+  const supabase = getSupabaseClient();
   const { data: sub } = await supabase
     .from('subscriptions')
     .select('user_id')

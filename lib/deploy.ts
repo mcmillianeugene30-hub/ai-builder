@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { supabase } from './supabase-server';
+import { getSupabaseClient } from './supabase-server';
 import type { ProjectFile } from './types';
 
 const VERCEL_API_URL = 'https://api.vercel.com/v13/deployments';
@@ -99,6 +99,7 @@ export async function createDeploymentRecord(
   userId: string,
   vercelId: string
 ): Promise<string | null> {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('deployments')
     .insert({
@@ -124,6 +125,7 @@ export async function updateDeploymentStatus(
   url?: string,
   errorMessage?: string
 ): Promise<void> {
+  const supabase = getSupabaseClient();
   await supabase
     .from('deployments')
     .update({ status, url, error_message: errorMessage ?? null })
@@ -138,6 +140,7 @@ export async function listDeployments(projectId: string): Promise<
     created_at: string;
   }>
 > {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('deployments')
     .select('id, status, url, created_at')

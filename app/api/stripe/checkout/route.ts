@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUser } from '@/lib/supabase-server';
+import { getUser, getSupabaseClient } from '@/lib/supabase-server';
 import { createStripeCustomer, createCheckoutSession } from '@/lib/stripe';
-import { supabase } from '@/lib/supabase-server';
 import { STRIPE_PRICE_IDS, type PlanName, type BillingCycle } from '@/lib/pricing';
 
 export async function POST(req: NextRequest) {
@@ -26,6 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Get or create Stripe customer
+  const supabase = getSupabaseClient();
   const { data: existingSub } = await supabase
     .from('subscriptions')
     .select('stripe_customer_id')

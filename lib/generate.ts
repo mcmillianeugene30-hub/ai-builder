@@ -1,6 +1,6 @@
 import { callWithFallback } from './model-router';
 import { validateSchema } from './validate';
-import { supabase } from './supabase-server';
+import { getSupabaseClient } from './supabase-server';
 import type { GeneratedApp, AILogStatus } from './types';
 
 const MAX_ATTEMPTS = 3;
@@ -17,6 +17,7 @@ interface LogEntry {
 }
 
 async function insertLog(entry: LogEntry): Promise<void> {
+  const supabase = getSupabaseClient();
   const { error } = await supabase.from('ai_logs').insert([entry]);
   if (error) {
     console.error('[generate] Failed to insert ai_logs row:', error.message);
